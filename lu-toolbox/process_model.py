@@ -1,9 +1,11 @@
-import bpy
+import bpy, bmesh
 from bpy.props import BoolProperty, FloatProperty, PointerProperty, IntProperty
 from mathutils import Color
 import random
 
-color_correction = {
+from .remove_hidden_faces import LUTB_OT_remove_hidden_faces
+
+MATERIALS_OPAQUE = {
     "26": (0.006, 0.006, 0.006, 1.0),
     "199": (0.072272, 0.082283, 0.093059, 1.0),
     "194": (0.332452, 0.283149, 0.283149, 1.0),
@@ -40,6 +42,28 @@ color_correction = {
     "222": (0.846873, 0.341914, 0.53948, 1.0),
 }
 
+MATERIALS_TRANSPARENT = {
+    "40": (0.854993, 0.854993, 0.854993, 1.0),
+    "41": (0.745405, 0.023153, 0.022174, 1.0),
+    "311": (0.846873, 0.341914, 0.53948, 1.0),
+    "113": (0.846873, 0.341914, 0.53948, 1.0),
+    "111": (0.846873, 0.341914, 0.53948, 1.0),
+    "294": (0.846873, 0.341914, 0.53948, 1.0),
+    "43": (0.08022, 0.439657, 0.806952, 1.0),
+    "42": (0.846873, 0.341914, 0.53948, 1.0),
+    "126": (0.846873, 0.341914, 0.53948, 1.0),
+    "48": (0.846873, 0.341914, 0.53948, 1.0),
+    "182": (0.846873, 0.341914, 0.53948, 1.0),
+    "44": (0.846873, 0.341914, 0.53948, 1.0),
+    "47": (0.846873, 0.341914, 0.53948, 1.0),
+    "49": (0.846873, 0.341914, 0.53948, 1.0),
+    "143": (0.846873, 0.341914, 0.53948, 1.0),
+}
+
+IS_TRANSPARENT = "lu_toolbox_is_transparent"
+
+LOD_SUFFIXES = ("LOD_0", "LOD_1", "LOD_2")
+
 class LUTB_PT_process_model(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -50,34 +74,51 @@ class LUTB_PT_process_model(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        layout.prop(scene, "lutb_process_use_gpu")
-        layout.prop(scene, "lutb_combine_objects")
-        layout.prop(scene, "lutb_correct_colors")
-
-        layout.prop(scene, "lutb_use_color_variation")
-        col = layout.column()
+        layout.box().prop(scene, "lutb_process_use_gpu")
+        
+        box = layout.box()
+        box.prop(scene, "lutb_combine_objects")
+        col = box.column()
+        col.prop(scene, "lutb_combine_transparent")
+        col.enabled = scene.lutb_combine_objects
+        
+        box = layout.box()
+        box.prop(scene, "lutb_correct_colors")
+        box.prop(scene, "lutb_use_color_variation")
+        col = box.column()
         col.prop(scene, "lutb_color_variation")
         col.enabled = scene.lutb_use_color_variation
+        box.prop(scene, "lutb_apply_vertex_colors")
 
-        layout.prop(scene, "lutb_apply_vertex_colors")
-
-        layout.prop(scene, "lutb_setup_bake_mats")
-        col = layout.column()
+        box = layout.box()
+        box.prop(scene, "lutb_setup_bake_mats")
+        col = box.column()
         col.prop(scene, "lutb_bake_mat", text="")
         col.enabled = scene.lutb_setup_bake_mats
 
-        layout.prop(scene, "lutb_setup_bake_env")
-        col = layout.column()
+        box = layout.box()
+        box.prop(scene, "lutb_setup_bake_env")
+        col = box.column()
         col.prop(scene, "lutb_bake_env", text="")
         col.enabled = scene.lutb_setup_bake_env
 
-        layout.prop(scene, "lutb_remove_hidden_faces")
-        col = layout.column()
+        box = layout.box()
+        box.prop(scene, "lutb_remove_hidden_faces")
+        col = box.column()
         col.prop(scene, "lutb_autoremove_hidden_faces", toggle=1)
         col.prop(scene, "lutb_hidden_surfaces_tris_to_quads", toggle=1)
         col.prop(scene, "lutb_pixels_between_verts", slider=True)
         col.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
         col.enabled = scene.lutb_remove_hidden_faces
+
+        box = layout.box()
+        box.prop(scene, "lutb_setup_lod_data")
+        col = box.column()
+        col.prop(scene, "lutb_lod0")
+        col.prop(scene, "lutb_lod1")
+        col.prop(scene, "lutb_lod2")
+        col.prop(scene, "lutb_cull")
+        col.enabled = scene.lutb_setup_lod_data
 
         layout.operator("lutb.process_model")
 
@@ -104,123 +145,350 @@ class LUTB_OT_process_model(bpy.types.Operator):
         scene.render.engine = "CYCLES"
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
+        self.precombine_bricks(context, scene.collection.children)
+
+        for obj in scene.collection.all_objects:
+            if not obj.type == "MESH":
+                continue
+
+            mat_names = {material.name.split(".")[0] for material in obj.data.materials}
+            if mat_names.issubset(MATERIALS_TRANSPARENT):
+                obj[IS_TRANSPARENT] = True
+
+        """for obj in scene.collection.all_objects:
+            if obj.type != "EMPTY":
+                matrix_world = obj.matrix_world.copy()
+                obj.parent = None
+                obj.matrix_world = matrix_world
+        for obj in list(scene.collection.all_objects):
+            if obj.type == "EMPTY":
+                bpy.data.objects.remove(obj)"""
+
         if scene.lutb_combine_objects:
-            for collection in scene.collection.children:
-                if len(collection.all_objects) > 1:
-                    bpy.ops.object.select_all(action="DESELECT")
-                    for obj in collection.all_objects:
-                        if obj.type == "MESH":
-                            obj.select_set(True)
+            self.combine_objects(context, scene.collection.children)
 
-                    context.view_layer.objects.active = obj
-
-                    bpy.ops.object.join()
-
-                    matrix_world = context.object.matrix_world.copy()
-                    context.object.parent = None
-                    context.object.matrix_world = matrix_world
-                    bpy.ops.object.transform_apply()
-
-                    for obj in collection.all_objects:
-                        if obj.type == "EMPTY":
-                            bpy.data.objects.remove(obj)
-
-                if len(collection.objects) > 0:
-                    obj = collection.objects[0]
-                    obj.name = f"{collection.name}_LOD_0"
-                    obj.data.name = obj.name
-                else:
-                    self.report({"WARNING"}, f"Collection \"{collection.name}\" is empty.")
-        
         context.view_layer.update()
-        objects = list(filter(lambda obj: obj.type == "MESH", scene.collection.all_objects))
 
-        for obj in objects:
-            for material in obj.data.materials:
-                if scene.lutb_correct_colors:
-                    name = material.name if not "." in material.name else material.name.split(".")[0]
-                    if name in color_correction:
-                        material.diffuse_color = color_correction[name]
+        opaque_objects = []
+        transparent_objects = []
+        for collection in scene.collection.children:
+            if not collection.children:
+                self.report({"WARNING"},
+                    f"Ignoring \"{collection.name}\": doesn't have any LOD collections"
+                )
+                continue
+
+            for lod_collection in collection.children:
+                if not lod_collection.name[-5:] in LOD_SUFFIXES:
+                    self.report({"WARNING"},
+                        f"Ignoring \"{lod_collection.name}\": not a LOD collection ({LOD_SUFFIXES})"
+                    )
+                    continue
+
+                for obj in lod_collection.all_objects:
+                    if obj.type == "MESH":
+                        if not obj.get(IS_TRANSPARENT):
+                            opaque_objects.append(obj)
+                        else:
+                            transparent_objects.append(obj)
+        all_objects = opaque_objects + transparent_objects
+
+        if not all_objects:
+            return {"FINISHED"}
+
+        if scene.lutb_correct_colors:
+            self.correct_colors(context, all_objects)
                 
-                if scene.lutb_use_color_variation:
-                    color = Color(material.diffuse_color[:3])
-                    gamma = color.v ** (1 / 2.224)
-                    gamma += random.uniform(-scene.lutb_color_variation / 200, scene.lutb_color_variation / 200)
-                    color.v = min(max(0, gamma), 1) ** 2.224
-                    material.diffuse_color = (*color, 1.0)
+        if scene.lutb_use_color_variation:
+            self.apply_color_variation(context, all_objects)
 
         if scene.lutb_apply_vertex_colors:
-            scene.render.engine = "CYCLES"
-            scene.cycles.bake_type = "DIFFUSE"
-            scene.render.bake.use_pass_direct = False
-            scene.render.bake.use_pass_indirect = False
-            scene.render.bake.use_pass_color = True
-            scene.render.bake.target = "VERTEX_COLORS"
-
-            for obj in objects:
-                mesh = obj.data
-
-                vc_lit = mesh.vertex_colors.get("Lit")
-                if not vc_lit:
-                    vc_lit = mesh.vertex_colors.new(name="Lit")
-                vc_col = mesh.vertex_colors.get("Col")
-                if not vc_col:
-                    vc_col = mesh.vertex_colors.new(name="Col")
-
-                mesh.vertex_colors.active = vc_col
-
-                context.view_layer.objects.active = obj
-                bpy.ops.object.select_all(action="DESELECT")
-                obj.select_set(True)
-
-                bpy.ops.object.bake(type="DIFFUSE")
-
-            context.area.spaces[0].shading.type = "SOLID"
-            context.area.spaces[0].shading.light = "FLAT"
-            context.area.spaces[0].shading.color_type = "VERTEX"
+            self.apply_vertex_colors(context, all_objects)
 
         if scene.lutb_setup_bake_mats:
-            for obj in objects:
-                mesh = obj.data
-                mesh.materials.clear()
-                
-                if scene.lutb_bake_mat:
-                    mesh.materials.append(scene.lutb_bake_mat)
+            self.setup_bake_mats(context, all_objects)
 
         if scene.lutb_setup_bake_env:
-            if scene.lutb_bake_env:
-                scene.world = scene.lutb_bake_env
-            
-            scene.render.engine = "CYCLES"
-            scene.cycles.bake_type = "COMBINED"
-            scene.render.bake.use_pass_direct = True
-            scene.render.bake.use_pass_indirect = True
-            scene.render.bake.use_pass_diffuse = True
-            scene.render.bake.use_pass_glossy = False
-            scene.render.bake.use_pass_transmission = True
-            scene.render.bake.use_pass_ambient_occlusion = True
-            scene.render.bake.use_pass_emit = True
-            scene.render.bake.target = "VERTEX_COLORS"
+            self.setup_bake_env(context)
 
         if scene.lutb_remove_hidden_faces:
-            for obj in objects:
-                context.view_layer.objects.active = obj
-                bpy.ops.object.select_all(action="DESELECT")
-                obj.select_set(True)
+            for obj in transparent_objects:
+                obj.hide_render = True
 
-                bpy.ops.lutb.remove_hidden_faces(
-                    autoremove=scene.lutb_autoremove_hidden_faces,
-                    tris_to_quads=scene.lutb_hidden_surfaces_tris_to_quads,
-                    pixels_between_verts=scene.lutb_pixels_between_verts,
-                    samples=scene.lutb_hidden_surfaces_samples,
-                )
+            self.remove_hidden_faces(context, opaque_objects)
+
+            for obj in transparent_objects:
+                obj.hide_render = False
+
+        if scene.lutb_setup_lod_data:
+            self.setup_lod_data(context, scene.collection.children)
+
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in all_objects:
+            obj.select_set(True)
+
+        return {"FINISHED"}
+
+    def precombine_bricks(self, context, collections):
+        bricks = {}
+        for collection in collections:
+            if not collection.children:
+                continue
+
+            for lod_collection in collection.children:
+                if not lod_collection.name[-5:] in LOD_SUFFIXES:
+                    continue
+        
+                for obj in lod_collection.all_objects:
+                    if not (obj.type == "MESH" and obj.parent):
+                        continue
+
+                    if brick := bricks.get(obj.parent):
+                        brick.append(obj)
+                    else:
+                        bricks[obj.parent] = [obj]
+
+        if not bricks:
+            return
+
+        for parent_empty, children in bricks.items():
+            bm = bmesh.new()
+            materials = {}
+
+            for child in children:
+                mesh = child.data
+                for old_mat_index, material in enumerate(mesh.materials):
+                    mat_name = material.name.split(".")[0]
+                    if mat := materials.get(mat_name):
+                        new_mat_index = mat[1]
+                    else:
+                        new_mat_index = len(materials)
+                        materials[mat_name] = (material, new_mat_index)
+                    
+                    if old_mat_index != new_mat_index:
+                        for polygon in mesh.polygons:
+                            if polygon.material_index == old_mat_index:
+                                polygon.material_index = new_mat_index
+
+                bm.from_mesh(mesh)
+
+            combined = children[0]
+            combined.name = parent_empty.name
+            combined.parent = None
+            combined.matrix_world = parent_empty.matrix_world.copy()
+            bm.to_mesh(combined.data)
+
+            combined.data.materials.clear()
+            # dictionaries are guaranteed to be ordered in 3.7+ (see PEP 468)
+            for material, _ in materials.values():
+                combined.data.materials.append(material)
+
+            bpy.data.objects.remove(parent_empty)
+            for obj in children[1:]:
+                bpy.data.objects.remove(obj)
+
+        for obj in list(collection.all_objects):
+            if obj.type == "EMPTY":
+                bpy.data.objects.remove(obj)
+
+    def combine_objects(self, context, collections):
+        scene = context.scene
+
+        for collection in collections:
+            if not collection.children:
+                continue
+
+            for lod_collection in collection.children:
+                if not lod_collection.name[-5:] in LOD_SUFFIXES:
+                    continue
+
+                objs_opaque = []
+                for obj in lod_collection.all_objects:
+                    if obj.type == "MESH" and not obj.get(IS_TRANSPARENT):
+                        objs_opaque.append(obj)
+
+                if objs_opaque:
+                    joined_opaque = self.join_objects(context, objs_opaque)
+                    joined_opaque.name = lod_collection.name[:-6]
+
+                objs_transparent = []
+                for obj in lod_collection.all_objects:
+                    if obj.type == "MESH" and obj.get(IS_TRANSPARENT):
+                        objs_transparent.append(obj)
+
+                if scene.lutb_combine_transparent:
+                    if objs_transparent:
+                        joined_transparent = self.join_objects(context, objs_transparent)
+                        joined_transparent.name = lod_collection.name[:-6]
+                        joined_transparent[IS_TRANSPARENT] = True
+
+    def join_objects(self, context, objects):
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in objects:
+            obj.select_set(True)
+
+        joined = objects[0]
+        context.view_layer.objects.active = joined
+        bpy.ops.object.join()
+        bpy.ops.object.transform_apply()
+        return joined
+
+    def correct_colors(self, context, objects):
+        for obj in objects:
+            for material in obj.data.materials:
+                name = material.name.split(".")[0]
+                if color := MATERIALS_OPAQUE.get(name):
+                    material.diffuse_color = color
+                elif color := MATERIALS_TRANSPARENT.get(name):
+                    material.diffuse_color = color
+    
+    def apply_color_variation(self, context, objects):
+        variation = context.scene.lutb_color_variation
+        for obj in objects:
+            for material in obj.data.materials:
+                color = Color(material.diffuse_color[:3])
+                gamma = color.v ** (1 / 2.224)
+                gamma += random.uniform(-variation / 200, variation / 200)
+                color.v = min(max(0, gamma), 1) ** 2.224
+                material.diffuse_color = (*color, 1.0)
+
+    def apply_vertex_colors(self, context, objects):
+        scene = context.scene
+
+        scene.render.engine = "CYCLES"
+        scene.cycles.bake_type = "DIFFUSE"
+        scene.render.bake.use_pass_direct = False
+        scene.render.bake.use_pass_indirect = False
+        scene.render.bake.use_pass_color = True
+        scene.render.bake.target = "VERTEX_COLORS"
 
         bpy.ops.object.select_all(action="DESELECT")
         for obj in objects:
             obj.select_set(True)
 
-        return {"FINISHED"}
+            mesh = obj.data
+            vc_col = mesh.vertex_colors.get("Col")
+            if not vc_col:
+                vc_col = mesh.vertex_colors.new(name="Col")
+            if not obj.get(IS_TRANSPARENT):
+                vc_lit = mesh.vertex_colors.get("Lit")
+                if not vc_lit:
+                    vc_lit = mesh.vertex_colors.new(name="Lit")
+            mesh.vertex_colors.active = vc_col
 
+        context.view_layer.objects.active = objects[0]
+        bpy.ops.object.bake(type="DIFFUSE")
+
+        shading = context.area.spaces[0].shading
+        shading.type = "SOLID"
+        shading.light = "FLAT"
+        shading.color_type = "VERTEX"
+
+    def setup_bake_mats(self, context, objects):
+        for obj in objects:
+            mesh = obj.data
+            mesh.materials.clear()
+            mesh.materials.append(context.scene.lutb_bake_mat)
+
+    def setup_bake_env(self, context):
+        scene = context.scene
+
+        if scene.lutb_bake_env:
+            scene.world = scene.lutb_bake_env
+        
+        scene.render.engine = "CYCLES"
+        scene.cycles.bake_type = "COMBINED"
+        scene.render.bake.use_pass_direct = True
+        scene.render.bake.use_pass_indirect = True
+        scene.render.bake.use_pass_diffuse = True
+        scene.render.bake.use_pass_glossy = False
+        scene.render.bake.use_pass_transmission = True
+        scene.render.bake.use_pass_emit = True
+        scene.render.bake.target = "VERTEX_COLORS"
+
+    def remove_hidden_faces(self, context, objects):
+        scene = context.scene
+
+        for obj in objects:
+            if obj.get(IS_TRANSPARENT):
+                continue
+
+            context.view_layer.objects.active = obj
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
+
+            bpy.ops.lutb.remove_hidden_faces(
+                autoremove=scene.lutb_autoremove_hidden_faces,
+                tris_to_quads=scene.lutb_hidden_surfaces_tris_to_quads,
+                pixels_between_verts=scene.lutb_pixels_between_verts,
+                samples=scene.lutb_hidden_surfaces_samples,
+            )
+
+    def setup_lod_data(self, context, collections):
+        scene = context.scene
+
+        for collection in collections:
+            if not collection.children:
+                continue
+
+            scene_node = bpy.data.objects.new(f"SceneNode_{collection.name}", None)
+            collection.objects.link(scene_node)
+
+            coll_opaque = bpy.data.collections.new(f"Opaque_{collection.name}")
+            coll_transparent = bpy.data.collections.new(f"Transparent_{collection.name}")
+
+            ni_nodes = {}
+            for lod_collection in list(collection.children):
+                suffix = lod_collection.name[-5:]
+                if not suffix in LOD_SUFFIXES:
+                    continue
+
+                for obj in list(lod_collection.all_objects):
+                    is_transparent = bool(obj.get(IS_TRANSPARENT))
+
+                    shader_prefix = "S01" if is_transparent else "S01"
+                    type_prefix = "Alpha" if is_transparent else "Opaque"
+                    obj_name = obj.name[:-4] if obj.name[-4] == "." else obj.name
+                    name = f"{shader_prefix}_{type_prefix}_{obj_name}"[:60]
+
+                    if not (node := ni_nodes.get(name)):
+                        node = bpy.data.objects.new(name, None)
+                        node["type"] = "NiLODNode"
+                        node.parent = scene_node
+                        ni_nodes[name] = node
+
+                        if is_transparent:
+                            coll_transparent.objects.link(node)
+                        else:
+                            coll_opaque.objects.link(node)
+
+                    lod_obj = bpy.data.objects.new(suffix, None) # f"{suffix}_{name}"
+                    lod_obj.parent = node
+
+                    lod_collection.objects.unlink(obj)
+                    obj.parent = lod_obj
+
+                    if is_transparent:
+                        coll_transparent.objects.link(lod_obj)
+                        coll_transparent.objects.link(obj)
+                    else:
+                        coll_opaque.objects.link(lod_obj)
+                        coll_opaque.objects.link(obj)
+
+                    if suffix == LOD_SUFFIXES[0]:
+                        lod_obj["near_extent"] = scene.lutb_lod0
+                        lod_obj["far_extent"] = scene.lutb_lod1
+                    elif suffix == LOD_SUFFIXES[1]:
+                        lod_obj["near_extent"] = scene.lutb_lod1
+                        lod_obj["far_extent"] = scene.lutb_lod2
+                    elif suffix == LOD_SUFFIXES[2]:
+                        lod_obj["near_extent"] = scene.lutb_lod2
+                        lod_obj["far_extent"] = scene.lutb_cull
+
+                collection.children.unlink(lod_collection)
+            
+            collection.children.link(coll_opaque)
+            collection.children.link(coll_transparent)
 
 def register():
     bpy.utils.register_class(LUTB_OT_process_model)
@@ -228,6 +496,7 @@ def register():
 
     bpy.types.Scene.lutb_process_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_combine_objects = BoolProperty(name="Combine Objects", default=True)
+    bpy.types.Scene.lutb_combine_transparent = BoolProperty(name="Combine Transparent", default=False)
     bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=True)
 
     bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
@@ -238,14 +507,21 @@ def register():
     bpy.types.Scene.lutb_setup_bake_mats = BoolProperty(name="Setup Bake Materials", default=True)
     bpy.types.Scene.lutb_bake_mat= PointerProperty(name="Bake Material", type=bpy.types.Material)
     
-    bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True)
+    bpy.types.Scene.lutb_setup_bake_env = BoolProperty(name="Setup Bake Environment", default=True)
+    bpy.types.Scene.lutb_bake_env = PointerProperty(name="Bake Environment", type=bpy.types.World)
+    
+    bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
+        description=LUTB_OT_remove_hidden_faces.__doc__)
     bpy.types.Scene.lutb_autoremove_hidden_faces = BoolProperty(name="Autoremove", default=True)
     bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads = BoolProperty(name="Tris to Quads", default=True)
     bpy.types.Scene.lutb_pixels_between_verts = IntProperty(name="Pixels Between Vertices", min=0, default=5, soft_max=15)
     bpy.types.Scene.lutb_hidden_surfaces_samples = IntProperty(name="Samples", min=0, default=8, soft_max=32)
-    
-    bpy.types.Scene.lutb_setup_bake_env = BoolProperty(name="Setup Bake Environment", default=True)
-    bpy.types.Scene.lutb_bake_env = PointerProperty(name="Bake Environment", type=bpy.types.World)
+
+    bpy.types.Scene.lutb_setup_lod_data = BoolProperty(name="Setup LOD Data", default=True)
+    bpy.types.Scene.lutb_lod0 = FloatProperty(name="LOD 0", soft_min=0.0, default=0.0, soft_max=25.0)
+    bpy.types.Scene.lutb_lod1 = FloatProperty(name="LOD 1", soft_min=0.0, default=25.0, soft_max=50.0)
+    bpy.types.Scene.lutb_lod2 = FloatProperty(name="LOD 2", soft_min=0.0, default=50.0, soft_max=500.0)
+    bpy.types.Scene.lutb_cull = FloatProperty(name="Cull", soft_min=1000.0, default=10000.0, soft_max=50000.0)
 
 def unregister():
     del bpy.types.Scene.lutb_process_use_gpu

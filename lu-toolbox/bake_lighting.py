@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import BoolProperty, IntProperty
+from .process_model import IS_TRANSPARENT
 
 class LUTB_PT_bake_lighting(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
@@ -11,13 +12,15 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
         layout = self.layout
         scene = context.scene
 
-        layout.prop(scene, "lutb_bake_use_gpu")
-        layout.prop(scene, "lutb_smooth_lit")
-        layout.prop(scene, "lutb_bake_samples")
+        box = layout.box()
+        box.prop(scene, "lutb_bake_use_gpu")
+        box.prop(scene, "lutb_smooth_lit")
+        box.prop(scene, "lutb_bake_samples")
+
         layout.operator("lutb.bake_lighting")
 
 class LUTB_OT_bake_lighting(bpy.types.Operator):
-    """Bake lighting"""
+    """Bake scene lighting to vertex color layer named \"Lit\" on all selected objects"""
     bl_idname = "lutb.bake_lighting"
     bl_label = "Bake Lighting"
 
@@ -35,26 +38,39 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         scene.render.bake.use_pass_diffuse = True
         scene.render.bake.use_pass_glossy = False
         scene.render.bake.use_pass_transmission = True
-        scene.render.bake.use_pass_ambient_occlusion = True
         scene.render.bake.use_pass_emit = True
         scene.render.bake.target = "VERTEX_COLORS"
 
-        
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
         previous_samples = scene.cycles.samples
         scene.cycles.samples = scene.lutb_bake_samples
 
-        for obj in context.selected_objects:
-            if obj.type == "MESH":
-                mesh = obj.data
-                vc_lit = mesh.vertex_colors.get("Lit")
-                if vc_lit:
-                    mesh.vertex_colors.active = vc_lit
+        old_active_obj = bpy.context.object
+        
+        hidden_objects = []
+        for obj in list(scene.collection.all_objects):
+            if obj.type == "MESH" and obj.get(IS_TRANSPARENT) and not obj.hide_render:
+                obj.hide_render = True
+                hidden_objects.append(obj)
 
-            context.view_layer.objects.active = obj
+        for obj in (selected := list(context.selected_objects)):
+            if obj.type != "MESH":
+                self.report({"WARNING"}, f"Ignoring \"{obj.name}\". (not a mesh)")
+                continue
+
+            if obj.get(IS_TRANSPARENT):
+                self.report({"WARNING"}, f"Ignoring \"{obj.name}\". (transparent)")
+                continue
+
+            mesh = obj.data
+            vc_lit = mesh.vertex_colors.get("Lit")
+            if vc_lit:
+                mesh.vertex_colors.active = vc_lit
+
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(True)
+            context.view_layer.objects.active = obj
         
             bpy.ops.object.bake()
 
@@ -62,6 +78,14 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 bpy.ops.object.mode_set(mode="VERTEX_PAINT")
                 bpy.ops.paint.vertex_color_smooth()
                 bpy.ops.object.mode_set(mode="OBJECT")
+
+        for obj in selected:
+            obj.select_set(True)
+
+        for obj in hidden_objects:
+            obj.hide_render = False
+
+        context.view_layer.objects.active = old_active_obj
         
         scene.cycles.samples = previous_samples
 
@@ -74,7 +98,8 @@ def register():
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
-    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256)
+    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256,
+        description="Number of samples to render for each vertex.")
 
 def unregister():
     del bpy.types.Scene.lutb_bake_use_gpu

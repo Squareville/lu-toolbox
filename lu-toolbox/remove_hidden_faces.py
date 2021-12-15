@@ -5,6 +5,7 @@ import math
 import numpy as np
 
 class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
+    """Remove faces hidden inside the model (using Cycles baking)"""
     bl_idname = "lutb.remove_hidden_faces"
     bl_label = "Remove Hidden Faces"
 
@@ -44,11 +45,10 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         imageName = "LUTB_OVEREXPOSED_TARGET"
         image = bpy.data.images.get(imageName)
-        if not image:
-            image = bpy.data.images.new(imageName, size_pixels, size_pixels, alpha=False, float_buffer=False)
-
-        elif image.size[0] != size_pixels or image.size[1] != size_pixels:
+        if image and (image.size[0] != size_pixels or image.size[1] != size_pixels):
             bpy.data.images.remove(image)
+            image = None
+        if not image:
             image = bpy.data.images.new(imageName, size_pixels, size_pixels, alpha=False, float_buffer=False)
 
         uvlayer = bm.loops.layers.uv.active

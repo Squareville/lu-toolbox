@@ -2,7 +2,7 @@ bl_info = {
 	"name": "LU Toolbox",
 	"author": "Bobbe",
 	"version": (1, 7, 0),
-	"blender": (2, 92, 0),
+	"blender": (3, 0, 0),
 	"location": "3D View -> Sidebar -> LU Toolbox",
 	"category": "Import-Export",
 	"support": "COMMUNITY",
@@ -11,7 +11,7 @@ bl_info = {
 import bpy
 import importlib
 
-module_names = ("process_model", "bake_lighting", "lods", "remove_hidden_faces")
+module_names = ("process_model", "bake_lighting", "remove_hidden_faces")
 modules = []
 
 for module_name in module_names:
