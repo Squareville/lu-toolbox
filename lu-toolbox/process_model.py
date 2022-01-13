@@ -2,6 +2,7 @@ import bpy, bmesh
 from bpy.props import BoolProperty, FloatProperty, PointerProperty, IntProperty
 from mathutils import Color
 import random
+import numpy as np
 from timeit import default_timer as timer
 
 from .remove_hidden_faces import LUTB_OT_remove_hidden_faces
@@ -37,6 +38,7 @@ class LUTB_PT_process_model(bpy.types.Panel):
         col2 = col.column()
         col2.prop(scene, "lutb_color_variation")
         col2.enabled = scene.lutb_use_color_variation
+        col.prop(scene, "lutb_transparent_opacity")
         col.enabled = scene.lutb_apply_vertex_colors
 
         box = layout.box()
@@ -295,29 +297,70 @@ class LUTB_OT_process_model(bpy.types.Operator):
     def apply_vertex_colors(self, context, objects):
         scene = context.scene
 
-        scene.render.engine = "CYCLES"
-        scene.cycles.bake_type = "DIFFUSE"
-        scene.render.bake.use_pass_direct = False
-        scene.render.bake.use_pass_indirect = False
-        scene.render.bake.use_pass_color = True
-        scene.render.bake.target = "VERTEX_COLORS"
-
-        bpy.ops.object.select_all(action="DESELECT")
         for obj in objects:
-            obj.select_set(True)
-
             mesh = obj.data
-            vc_col = mesh.vertex_colors.get("Col")
-            if not vc_col:
-                vc_col = mesh.vertex_colors.new(name="Col")
-            if not obj.get(IS_TRANSPARENT):
-                vc_lit = mesh.vertex_colors.get("Lit")
-                if not vc_lit:
-                    vc_lit = mesh.vertex_colors.new(name="Lit")
-            mesh.vertex_colors.active = vc_col
+            n_loops = len(mesh.loops)
 
-        context.view_layer.objects.active = objects[0]
-        bpy.ops.object.bake(type="DIFFUSE")
+            if not obj.get(IS_TRANSPARENT):
+                if not (vc_lit := mesh.vertex_colors.get("Lit")):
+                    vc_lit = mesh.vertex_colors.new(name="Lit")
+                lit_data = np.tile((0.0, 0.0, 0.0, 1.0), n_loops)
+                vc_lit.data.foreach_set("color", lit_data)
+
+            if not (vc_col := mesh.vertex_colors.get("Col")):
+                vc_col = mesh.vertex_colors.new(name="Col")
+
+            materials = mesh.materials
+            n_materials = len(materials)
+            if n_materials < 2:
+                color = materials[0].diffuse_color if materials else (0.8, 0.8, 0.8, 1.0)
+                color_data = np.tile(color, n_loops)
+            else:
+                colors = np.zeros((n_materials, 4))
+                for i, material in enumerate(materials):
+                    colors[i] = material.diffuse_color
+
+                if obj.get(IS_TRANSPARENT):
+                    colors[:, 3] = scene.lutb_transparent_opacity / 100.0
+
+                color_indices = np.zeros(len(mesh.loops), dtype=int)
+                for poly in mesh.polygons:
+                    poly_loop_end = poly.loop_start + poly.loop_total
+                    color_indices[poly.loop_start:poly_loop_end] = poly.material_index
+
+                color_data = colors[color_indices].flatten()
+
+            vc_col.data.foreach_set("color", color_data)
+
+            if not obj.get(IS_TRANSPARENT):
+                if not (vc_alpha := mesh.vertex_colors.get("Alpha")):
+                    vc_alpha = mesh.vertex_colors.new(name="Alpha")
+                alpha_data = np.tile((1.0, 1.0, 1.0, 1.0), n_loops)
+                vc_alpha.data.foreach_set("color", alpha_data)
+
+                if not (vc_glow := mesh.vertex_colors.get("Glow")):
+                    vc_glow = mesh.vertex_colors.new(name="Glow")
+
+                mat_names = [mat.name.rsplit(".", 1)[0] for mat in mesh.materials]
+                if set(mat_names) & set(MATERIALS_GLOW):
+                    colors = np.zeros((n_materials, 4))
+                    for i, (name, material) in enumerate(zip(mat_names, materials)):
+                        color = MATERIALS_GLOW.get(name, None)
+                        colors[i] = color if color else (0.0, 0.0, 0.0, 1.0)
+
+                    color_indices = np.zeros(len(mesh.loops), dtype=int)
+                    for poly in mesh.polygons:
+                        poly_loop_end = poly.loop_start + poly.loop_total
+                        color_indices[poly.loop_start:poly_loop_end] = poly.material_index
+
+                    glow_data = colors[color_indices].flatten()
+                else:
+                    glow_data = np.tile((0.0, 0.0, 0.0, 1.0), n_loops)
+
+                vc_glow.data.foreach_set("color", glow_data)
+
+            # no clue why setting .active doesn't work ...
+            mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index(vc_col.name)
 
         shading = context.area.spaces[0].shading
         shading.type = "SOLID"
@@ -426,6 +469,7 @@ def register():
     bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
     bpy.types.Scene.lutb_color_variation = FloatProperty(name="Color Variation", subtype="PERCENTAGE", min=0.0, soft_max=15.0, max=100.0, default=5.0)
     
+    bpy.types.Scene.lutb_transparent_opacity = FloatProperty(name="Transparent Opacity", subtype="PERCENTAGE", min=0.0, max=100.0, default=70.0)
     bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True)
     
     bpy.types.Scene.lutb_setup_bake_mats = BoolProperty(name="Setup Bake Materials", default=True)
@@ -447,11 +491,13 @@ def register():
 def unregister():
     del bpy.types.Scene.lutb_process_use_gpu
     del bpy.types.Scene.lutb_combine_objects
+    del bpy.types.Scene.lutb_combine_transparent
     del bpy.types.Scene.lutb_correct_colors
     
     del bpy.types.Scene.lutb_use_color_variation
     del bpy.types.Scene.lutb_color_variation
     
+    del bpy.types.Scene.lutb_transparent_opacity
     del bpy.types.Scene.lutb_apply_vertex_colors
     
     del bpy.types.Scene.lutb_setup_bake_mats
