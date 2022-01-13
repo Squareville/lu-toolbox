@@ -2,6 +2,7 @@ import bpy, bmesh
 from bpy.props import BoolProperty, FloatProperty, PointerProperty, IntProperty
 from mathutils import Color
 import random
+from timeit import default_timer as timer
 
 from .remove_hidden_faces import LUTB_OT_remove_hidden_faces
 from .materials import *
@@ -72,6 +73,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
         return context.mode == "OBJECT"
 
     def execute(self, context):
+        start = timer()
+
         scene = context.scene
 
         if not scene.lutb_bake_mat:
@@ -158,6 +161,9 @@ class LUTB_OT_process_model(bpy.types.Operator):
         bpy.ops.object.select_all(action="DESELECT")
         for obj in all_objects:
             obj.select_set(True)
+
+        end = timer()
+        print(f"finished process model in {end - start:.2f}s")
 
         return {"FINISHED"}
 

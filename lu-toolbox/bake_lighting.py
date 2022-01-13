@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import BoolProperty, IntProperty
 from .process_model import IS_TRANSPARENT
+from timeit import default_timer as timer
 
 WHITE_AMBIENT = "LUTB_WHITE_AMBIENT"
 
@@ -32,6 +33,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         return context.mode == "OBJECT"
 
     def execute(self, context):
+        start = timer()
+
         scene = context.scene
 
         old_world = scene.world
@@ -101,6 +104,9 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         context.view_layer.objects.active = old_active_obj
         scene.cycles.samples = old_samples
         scene.world = old_world
+
+        end = timer()
+        print(f"finished bake lighthing in {end - start:.2f}s")
 
         return {"FINISHED"}
 
