@@ -30,12 +30,14 @@ class LUTB_PT_process_model(bpy.types.Panel):
         col.enabled = scene.lutb_combine_objects
         
         box = layout.box()
-        box.prop(scene, "lutb_correct_colors")
-        box.prop(scene, "lutb_use_color_variation")
-        col = box.column()
-        col.prop(scene, "lutb_color_variation")
-        col.enabled = scene.lutb_use_color_variation
         box.prop(scene, "lutb_apply_vertex_colors")
+        col = box.column()
+        col.prop(scene, "lutb_correct_colors")
+        col.prop(scene, "lutb_use_color_variation")
+        col2 = col.column()
+        col2.prop(scene, "lutb_color_variation")
+        col2.enabled = scene.lutb_use_color_variation
+        col.enabled = scene.lutb_apply_vertex_colors
 
         box = layout.box()
         box.prop(scene, "lutb_setup_bake_mats")
@@ -46,8 +48,8 @@ class LUTB_PT_process_model(bpy.types.Panel):
         box = layout.box()
         box.prop(scene, "lutb_remove_hidden_faces")
         col = box.column()
-        col.prop(scene, "lutb_autoremove_hidden_faces", toggle=1)
-        col.prop(scene, "lutb_hidden_surfaces_tris_to_quads", toggle=1)
+        col.prop(scene, "lutb_autoremove_hidden_faces")
+        col.prop(scene, "lutb_hidden_surfaces_tris_to_quads")
         col.prop(scene, "lutb_pixels_between_verts", slider=True)
         col.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
         col.enabled = scene.lutb_remove_hidden_faces
@@ -460,6 +462,12 @@ def unregister():
     del bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads
     del bpy.types.Scene.lutb_pixels_between_verts
     del bpy.types.Scene.lutb_hidden_surfaces_samples
+
+    del bpy.types.Scene.lutb_setup_lod_data
+    del bpy.types.Scene.lutb_lod0
+    del bpy.types.Scene.lutb_lod1
+    del bpy.types.Scene.lutb_lod2
+    del bpy.types.Scene.lutb_cull
 
     bpy.utils.unregister_class(LUTB_PT_process_model)
     bpy.utils.unregister_class(LUTB_OT_process_model)
