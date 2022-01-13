@@ -2,6 +2,8 @@ import bpy
 from bpy.props import BoolProperty, IntProperty
 from .process_model import IS_TRANSPARENT
 
+WHITE_AMBIENT = "LUTB_WHITE_AMBIENT"
+
 class LUTB_PT_bake_lighting(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -14,7 +16,8 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
 
         box = layout.box()
         box.prop(scene, "lutb_bake_use_gpu")
-        box.prop(scene, "lutb_smooth_lit")
+        box.prop(scene, "lutb_bake_use_white_ambient")
+        box.prop(scene, "lutb_bake_smooth_lit")
         box.prop(scene, "lutb_bake_samples")
 
         layout.operator("lutb.bake_lighting")
@@ -31,8 +34,17 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
     def execute(self, context):
         scene = context.scene
 
+        old_world = scene.world
+        if scene.lutb_bake_use_white_ambient:
+            if not (world := bpy.data.worlds.get(WHITE_AMBIENT)):
+                world = bpy.data.worlds.new(WHITE_AMBIENT)
+                world.color = (1.0, 1.0, 1.0)
+            scene.world = world
+
         scene.render.engine = "CYCLES"
         scene.cycles.bake_type = "COMBINED"
+        scene.cycles.caustics_reflective = False
+        scene.cycles.caustics_refractive = False
         scene.render.bake.use_pass_direct = True
         scene.render.bake.use_pass_indirect = True
         scene.render.bake.use_pass_diffuse = True
@@ -43,7 +55,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
-        previous_samples = scene.cycles.samples
+        old_samples = scene.cycles.samples
         scene.cycles.samples = scene.lutb_bake_samples
 
         old_active_obj = bpy.context.object
@@ -75,7 +87,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             bpy.ops.object.bake()
 
             has_edge_split_modifier = "EDGE_SPLIT" in {mod.type for mod in obj.modifiers}
-            if scene.lutb_smooth_lit and not has_edge_split_modifier:
+            if scene.lutb_bake_smooth_lit and not has_edge_split_modifier:
                 bpy.ops.object.mode_set(mode="VERTEX_PAINT")
                 bpy.ops.paint.vertex_color_smooth()
                 bpy.ops.object.mode_set(mode="OBJECT")
@@ -87,8 +99,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             obj.hide_render = False
 
         context.view_layer.objects.active = old_active_obj
-        
-        scene.cycles.samples = previous_samples
+        scene.cycles.samples = old_samples
+        scene.world = old_world
 
         return {"FINISHED"}
 
@@ -98,14 +110,17 @@ def register():
     bpy.utils.register_class(LUTB_PT_bake_lighting)
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
-    bpy.types.Scene.lutb_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
+    bpy.types.Scene.lutb_bake_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
     bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256,
         description="Number of samples to render for each vertex.")
+    bpy.types.Scene.lutb_bake_use_white_ambient = BoolProperty(name="White Ambient", default=True,
+        description="Sets ambient light to pure white while baking.")
 
 def unregister():
     del bpy.types.Scene.lutb_bake_use_gpu
-    del bpy.types.Scene.lutb_smooth_lit
+    del bpy.types.Scene.lutb_bake_smooth_lit
     del bpy.types.Scene.lutb_bake_samples
+    del bpy.types.Scene.lutb_bake_use_white_ambient
 
     bpy.utils.unregister_class(LUTB_PT_bake_lighting)
     bpy.utils.unregister_class(LUTB_OT_bake_lighting)

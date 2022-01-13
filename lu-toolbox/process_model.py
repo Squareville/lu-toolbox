@@ -43,12 +43,6 @@ class LUTB_PT_process_model(bpy.types.Panel):
         col.enabled = scene.lutb_setup_bake_mats
 
         box = layout.box()
-        box.prop(scene, "lutb_setup_bake_env")
-        col = box.column()
-        col.prop(scene, "lutb_bake_env", text="")
-        col.enabled = scene.lutb_setup_bake_env
-
-        box = layout.box()
         box.prop(scene, "lutb_remove_hidden_faces")
         col = box.column()
         col.prop(scene, "lutb_autoremove_hidden_faces", toggle=1)
@@ -82,11 +76,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
         if not scene.lutb_bake_mat:
             scene.lutb_bake_mat = bpy.data.materials.get("VertexColor")
-        if not scene.lutb_bake_env:
-            world = bpy.data.worlds.new(name="AmbientOcclusion")
-            world.use_nodes = True
-            world.node_tree.nodes["Background"].inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
-            scene.lutb_bake_env = world
 
         scene.render.engine = "CYCLES"
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
@@ -153,9 +142,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
         if scene.lutb_setup_bake_mats:
             self.setup_bake_mats(context, all_objects)
-
-        if scene.lutb_setup_bake_env:
-            self.setup_bake_env(context)
 
         if scene.lutb_remove_hidden_faces:
             for obj in transparent_objects:
@@ -336,22 +322,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
             mesh.materials.clear()
             mesh.materials.append(context.scene.lutb_bake_mat)
 
-    def setup_bake_env(self, context):
-        scene = context.scene
-
-        if scene.lutb_bake_env:
-            scene.world = scene.lutb_bake_env
-        
-        scene.render.engine = "CYCLES"
-        scene.cycles.bake_type = "COMBINED"
-        scene.render.bake.use_pass_direct = True
-        scene.render.bake.use_pass_indirect = True
-        scene.render.bake.use_pass_diffuse = True
-        scene.render.bake.use_pass_glossy = False
-        scene.render.bake.use_pass_transmission = True
-        scene.render.bake.use_pass_emit = True
-        scene.render.bake.target = "VERTEX_COLORS"
-
     def remove_hidden_faces(self, context, objects):
         scene = context.scene
 
@@ -453,9 +423,6 @@ def register():
     bpy.types.Scene.lutb_setup_bake_mats = BoolProperty(name="Setup Bake Materials", default=True)
     bpy.types.Scene.lutb_bake_mat= PointerProperty(name="Bake Material", type=bpy.types.Material)
     
-    bpy.types.Scene.lutb_setup_bake_env = BoolProperty(name="Setup Bake Environment", default=True)
-    bpy.types.Scene.lutb_bake_env = PointerProperty(name="Bake Environment", type=bpy.types.World)
-    
     bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
         description=LUTB_OT_remove_hidden_faces.__doc__)
     bpy.types.Scene.lutb_autoremove_hidden_faces = BoolProperty(name="Autoremove", default=True)
@@ -487,9 +454,6 @@ def unregister():
     del bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads
     del bpy.types.Scene.lutb_pixels_between_verts
     del bpy.types.Scene.lutb_hidden_surfaces_samples
-    
-    del bpy.types.Scene.lutb_setup_bake_env
-    del bpy.types.Scene.lutb_bake_env
 
     bpy.utils.unregister_class(LUTB_PT_process_model)
     bpy.utils.unregister_class(LUTB_OT_process_model)
