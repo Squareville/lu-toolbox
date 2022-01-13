@@ -78,6 +78,13 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 self.report({"WARNING"}, f"Ignoring \"{obj.name}\". (transparent)")
                 continue
 
+            triangulate_mods = [mod for mod in obj.modifiers if mod.type == "TRIANGULATE"]
+            for modifier in triangulate_mods:
+                modifier.show_render = False
+            if not triangulate_mods or not obj.modifiers[-1] in triangulate_mods:
+                modifier = obj.modifiers.new("Triangulate", "TRIANGULATE")
+                modifier.show_render = False
+
             mesh = obj.data
             vc_lit = mesh.vertex_colors.get("Lit")
             if vc_lit:
