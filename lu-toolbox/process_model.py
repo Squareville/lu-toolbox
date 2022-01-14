@@ -43,10 +43,10 @@ class LUTB_PT_process_model(bpy.types.Panel):
         col.enabled = scene.lutb_apply_vertex_colors
 
         box = layout.box()
-        box.prop(scene, "lutb_setup_bake_mats")
+        box.prop(scene, "lutb_setup_bake_mat")
         col = box.column()
         col.prop(scene, "lutb_bake_mat", text="")
-        col.enabled = scene.lutb_setup_bake_mats
+        col.enabled = scene.lutb_setup_bake_mat
 
         box = layout.box()
         box.prop(scene, "lutb_remove_hidden_faces")
@@ -148,8 +148,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
         if scene.lutb_apply_vertex_colors:
             self.apply_vertex_colors(context, all_objects)
 
-        if scene.lutb_setup_bake_mats:
-            self.setup_bake_mats(context, all_objects)
+        if scene.lutb_setup_bake_mat:
+            self.setup_bake_mat(context, all_objects)
 
         if scene.lutb_remove_hidden_faces:
             for obj in transparent_objects:
@@ -370,11 +370,14 @@ class LUTB_OT_process_model(bpy.types.Operator):
         shading.light = "FLAT"
         shading.color_type = "VERTEX"
 
-    def setup_bake_mats(self, context, objects):
+    def setup_bake_mat(self, context, objects):
+        if not (material := context.scene.lutb_bake_mat):
+            material = context.scene.lutb_bake_mat = get_lutb_bake_mat(self)
+
         for obj in objects:
             mesh = obj.data
             mesh.materials.clear()
-            mesh.materials.append(context.scene.lutb_bake_mat)
+            mesh.materials.append(material)
 
     def remove_hidden_faces(self, context, objects):
         scene = context.scene
@@ -477,7 +480,7 @@ def register():
     bpy.types.Scene.lutb_transparent_opacity = FloatProperty(name="Transparent Opacity", subtype="PERCENTAGE", min=0.0, max=100.0, default=70.0)
     bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True)
     
-    bpy.types.Scene.lutb_setup_bake_mats = BoolProperty(name="Setup Bake Materials", default=True)
+    bpy.types.Scene.lutb_setup_bake_mat = BoolProperty(name="Setup Bake Material", default=True)
     bpy.types.Scene.lutb_bake_mat= PointerProperty(name="Bake Material", type=bpy.types.Material)
     
     bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
@@ -505,7 +508,7 @@ def unregister():
     del bpy.types.Scene.lutb_transparent_opacity
     del bpy.types.Scene.lutb_apply_vertex_colors
     
-    del bpy.types.Scene.lutb_setup_bake_mats
+    del bpy.types.Scene.lutb_setup_bake_mat
     del bpy.types.Scene.lutb_bake_mat
     
     del bpy.types.Scene.lutb_remove_hidden_faces

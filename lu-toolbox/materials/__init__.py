@@ -1,3 +1,9 @@
+from pathlib import Path
+import bpy
+
+LUTB_BAKE_MAT = "VertexColorAO"
+LUTB_OTHER_MATS = ("VertexColor", "VertexColorTransparent")
+
 MATERIALS_OPAQUE = {
     "26": (0.006, 0.006, 0.006, 1.0),
     "199": (0.072272, 0.082283, 0.093059, 1.0),
@@ -57,3 +63,20 @@ MATERIALS_GLOW = {
     "50": (1.0, 1.0, 1.0, 1.0),
     "329": MATERIALS_OPAQUE["329"],
 }
+
+def get_lutb_bake_mat(parent_op=None):
+    if not LUTB_BAKE_MAT in bpy.data.materials:
+        append_resources(parent_op)
+    return bpy.data.materials.get(LUTB_BAKE_MAT, None)
+
+def append_resources(parent_op=None):
+    blend_file = Path(__file__).parent / "resources.blend"
+
+    for mat_name in (LUTB_BAKE_MAT, *LUTB_OTHER_MATS):
+        if not mat_name in bpy.data.materials:
+            bpy.ops.wm.append(directory=str(blend_file / "Material"), filename=mat_name)
+
+            if not mat_name in bpy.data.materials and parent_op:
+                self.report({"WARNING"},
+                    f"Failed to append \"{mat_name}\" from \"{blend_file}\"."
+                )
