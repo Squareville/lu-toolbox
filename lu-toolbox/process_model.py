@@ -7,6 +7,7 @@ from timeit import default_timer as timer
 
 from .remove_hidden_faces import LUTB_OT_remove_hidden_faces
 from .materials import *
+from .divide_mesh import divide_mesh
 
 IS_TRANSPARENT = "lu_toolbox_is_transparent"
 
@@ -93,7 +94,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
             if not obj.type == "MESH":
                 continue
 
-            mat_names = {material.name.split(".")[0] for material in obj.data.materials}
+            mat_names = {material.name.rsplit(".", 1)[0] for material in obj.data.materials}
             if mat_names.issubset(MATERIALS_TRANSPARENT):
                 obj[IS_TRANSPARENT] = True
 
@@ -140,7 +141,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
         if scene.lutb_correct_colors:
             self.correct_colors(context, all_objects)
-                
+
         if scene.lutb_use_color_variation:
             self.apply_color_variation(context, all_objects)
 
@@ -158,6 +159,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
             for obj in transparent_objects:
                 obj.hide_render = False
+
+        self.split_objects(context, scene.collection.children)
 
         if scene.lutb_setup_lod_data:
             self.setup_lod_data(context, scene.collection.children)
@@ -200,7 +203,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
             for child in children:
                 mesh = child.data
                 for old_mat_index, material in enumerate(mesh.materials):
-                    mat_name = material.name.split(".")[0]
+                    mat_name = material.name.rsplit(".", 1)[0]
                     if mat := materials.get(mat_name):
                         new_mat_index = mat[1]
                     else:
@@ -278,7 +281,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
     def correct_colors(self, context, objects):
         for obj in objects:
             for material in obj.data.materials:
-                name = material.name.split(".")[0]
+                name = material.name.rsplit(".", 1)[0]
                 if color := MATERIALS_OPAQUE.get(name):
                     material.diffuse_color = color
                 elif color := MATERIALS_TRANSPARENT.get(name):
@@ -391,6 +394,14 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 samples=scene.lutb_hidden_surfaces_samples,
             )
 
+    def split_objects(self, context, collections):
+        for collection in collections:
+            for lod_collection in collection.children:
+                for obj in list(lod_collection.objects):
+                    if obj.type == "MESH":
+                        for new_obj in divide_mesh(context, obj):
+                            lod_collection.objects.link(new_obj)
+
     def setup_lod_data(self, context, collections):
         scene = context.scene
 
@@ -401,61 +412,60 @@ class LUTB_OT_process_model(bpy.types.Operator):
             scene_node = bpy.data.objects.new(f"SceneNode_{collection.name}", None)
             collection.objects.link(scene_node)
 
-            coll_opaque = bpy.data.collections.new(f"Opaque_{collection.name}")
-            coll_transparent = bpy.data.collections.new(f"Transparent_{collection.name}")
-
             ni_nodes = {}
-            for lod_collection in list(collection.children):
-                suffix = lod_collection.name[-5:]
+            for lods_collection in list(collection.children):
+                suffix = lods_collection.name[-5:]
                 if not suffix in LOD_SUFFIXES:
                     continue
 
-                for obj in list(lod_collection.all_objects):
+                for obj in list(lods_collection.all_objects):
                     is_transparent = bool(obj.get(IS_TRANSPARENT))
 
                     shader_prefix = "S01" if is_transparent else "S01"
                     type_prefix = "Alpha" if is_transparent else "Opaque"
-                    obj_name = obj.name[:-4] if obj.name[-4] == "." else obj.name
+                    obj_name = obj.name.rsplit(".", 1)[0]
                     name = f"{shader_prefix}_{type_prefix}_{obj_name}"[:60]
 
-                    if not (node := ni_nodes.get(name)):
-                        node = bpy.data.objects.new(name, None)
-                        node["type"] = "NiLODNode"
-                        node.parent = scene_node
+                    if (node := ni_nodes.get(name)):
+                        node_obj, node_lods = node
+                    else:
+                        node_obj = bpy.data.objects.new(name, None)
+                        node_obj["type"] = "NiLODNode"
+                        node_obj.parent = scene_node
+                        collection.objects.link(node_obj)
+
+                        node_lods = {}
+                        node = (node_obj, node_lods)
                         ni_nodes[name] = node
 
-                        if is_transparent:
-                            coll_transparent.objects.link(node)
-                        else:
-                            coll_opaque.objects.link(node)
+                    if (lod := node_lods.get(suffix, None)):
+                        lod_obj, lod_collection = lod
+                    else:
+                        lod_obj = bpy.data.objects.new(suffix, None)
+                        lod_obj.parent = node_obj
+                        collection.objects.link(lod_obj)
 
-                    lod_obj = bpy.data.objects.new(suffix, None) # f"{suffix}_{name}"
-                    lod_obj.parent = node
+                        if suffix == LOD_SUFFIXES[0]:
+                            lod_obj["near_extent"] = scene.lutb_lod0
+                            lod_obj["far_extent"] = scene.lutb_lod1
+                        elif suffix == LOD_SUFFIXES[1]:
+                            lod_obj["near_extent"] = scene.lutb_lod1
+                            lod_obj["far_extent"] = scene.lutb_lod2
+                        elif suffix == LOD_SUFFIXES[2]:
+                            lod_obj["near_extent"] = scene.lutb_lod2
+                            lod_obj["far_extent"] = scene.lutb_cull
 
-                    lod_collection.objects.unlink(obj)
+                        lod_collection = bpy.data.collections.new(suffix)
+
+                        lod = (lod_obj, lod_collection)
+                        node_lods[suffix] = lod
+
                     obj.parent = lod_obj
 
-                    if is_transparent:
-                        coll_transparent.objects.link(lod_obj)
-                        coll_transparent.objects.link(obj)
-                    else:
-                        coll_opaque.objects.link(lod_obj)
-                        coll_opaque.objects.link(obj)
+                    lods_collection.objects.unlink(obj)
+                    collection.objects.link(obj)
 
-                    if suffix == LOD_SUFFIXES[0]:
-                        lod_obj["near_extent"] = scene.lutb_lod0
-                        lod_obj["far_extent"] = scene.lutb_lod1
-                    elif suffix == LOD_SUFFIXES[1]:
-                        lod_obj["near_extent"] = scene.lutb_lod1
-                        lod_obj["far_extent"] = scene.lutb_lod2
-                    elif suffix == LOD_SUFFIXES[2]:
-                        lod_obj["near_extent"] = scene.lutb_lod2
-                        lod_obj["far_extent"] = scene.lutb_cull
-
-                collection.children.unlink(lod_collection)
-            
-            collection.children.link(coll_opaque)
-            collection.children.link(coll_transparent)
+                collection.children.unlink(lods_collection)
 
 def register():
     bpy.utils.register_class(LUTB_OT_process_model)
