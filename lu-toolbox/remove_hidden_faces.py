@@ -149,6 +149,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             bm.free()
 
             bpy.ops.object.mode_set(mode="EDIT")
+            context.tool_settings.mesh_select_mode = (True, False, False)
             bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
             bpy.ops.object.mode_set(mode="OBJECT")
         
