@@ -2,6 +2,7 @@ import bpy
 from bpy.props import BoolProperty, IntProperty
 from .process_model import IS_TRANSPARENT
 from timeit import default_timer as timer
+import numpy as np
 
 WHITE_AMBIENT = "LUTB_WHITE_AMBIENT"
 
@@ -58,7 +59,6 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         scene.render.bake.use_pass_glossy = False
         scene.render.bake.use_pass_transmission = True
         scene.render.bake.use_pass_emit = True
-        scene.render.bake.target = "VERTEX_COLORS"
 
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
@@ -90,21 +90,33 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 modifier.show_render = False
 
             mesh = obj.data
-            vc_lit = mesh.vertex_colors.get("Lit")
-            if vc_lit:
-                mesh.vertex_colors.active = vc_lit
+            
+            if vc_lit := mesh.vertex_colors.get("Lit"):
+                mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index(vc_lit.name)
 
             bpy.ops.object.select_all(action="DESELECT")
             obj.select_set(True)
             context.view_layer.objects.active = obj
         
-            bpy.ops.object.bake()
+            bpy.ops.object.bake(target="VERTEX_COLORS")
 
             has_edge_split_modifier = "EDGE_SPLIT" in {mod.type for mod in obj.modifiers}
             if scene.lutb_bake_smooth_lit and not has_edge_split_modifier:
                 bpy.ops.object.mode_set(mode="VERTEX_PAINT")
                 bpy.ops.paint.vertex_color_smooth()
                 bpy.ops.object.mode_set(mode="OBJECT")
+
+            if vc_lit and (vc_alpha := mesh.vertex_colors.get("Alpha")):
+                n_loops = len(mesh.loops)
+
+                lit_data = np.zeros(n_loops * 4)
+                alpha_data = np.zeros(n_loops * 4)
+
+                vc_lit.data.foreach_get("color", lit_data)
+                vc_alpha.data.foreach_get("color", alpha_data)
+                lit_data = lit_data.reshape((4, n_loops))
+                lit_data[:, 3] = alpha_data.reshape((4, n_loops))[:, 0]
+                vc_lit.data.foreach_set("color", lit_data.flatten())
 
         for obj in selected:
             obj.select_set(True)

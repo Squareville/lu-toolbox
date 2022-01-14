@@ -401,7 +401,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                             lod_obj["near_extent"] = scene.lutb_lod2
                             lod_obj["far_extent"] = scene.lutb_cull
 
-                        node_lods[suffix] = lod_object
+                        node_lods[suffix] = lod_obj
 
                     obj.parent = lod_obj
 
