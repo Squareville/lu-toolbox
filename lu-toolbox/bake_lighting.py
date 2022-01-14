@@ -12,16 +12,20 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
     bl_label = "Bake Lighting"
 
     def draw(self, context):
-        layout = self.layout
         scene = context.scene
 
-        box = layout.box()
-        box.prop(scene, "lutb_bake_use_gpu")
-        box.prop(scene, "lutb_bake_use_white_ambient")
-        box.prop(scene, "lutb_bake_smooth_lit")
-        box.prop(scene, "lutb_bake_samples")
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
 
         layout.operator("lutb.bake_lighting")
+
+        layout.separator()
+
+        layout.prop(scene, "lutb_bake_use_gpu")
+        layout.prop(scene, "lutb_bake_use_white_ambient")
+        layout.prop(scene, "lutb_bake_smooth_lit")
+        layout.prop(scene, "lutb_bake_samples")
 
 class LUTB_OT_bake_lighting(bpy.types.Operator):
     """Bake scene lighting to vertex color layer named \"Lit\" on all selected objects"""

@@ -1,5 +1,5 @@
 import bpy, bmesh
-from bpy.props import BoolProperty, FloatProperty, PointerProperty, IntProperty
+from bpy.props import *
 from mathutils import Color
 import random
 import numpy as np
@@ -12,61 +12,6 @@ from .divide_mesh import divide_mesh
 IS_TRANSPARENT = "lu_toolbox_is_transparent"
 
 LOD_SUFFIXES = ("LOD_0", "LOD_1", "LOD_2")
-
-class LUTB_PT_process_model(bpy.types.Panel):
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "LU Toolbox"
-    bl_label = "Process Model"
-
-    def draw(self, context):
-        layout = self.layout
-        scene = context.scene
-
-        layout.box().prop(scene, "lutb_process_use_gpu")
-        
-        box = layout.box()
-        box.prop(scene, "lutb_combine_objects")
-        col = box.column()
-        col.prop(scene, "lutb_combine_transparent")
-        col.enabled = scene.lutb_combine_objects
-        
-        box = layout.box()
-        box.prop(scene, "lutb_apply_vertex_colors")
-        col = box.column()
-        col.prop(scene, "lutb_correct_colors")
-        col.prop(scene, "lutb_use_color_variation")
-        col2 = col.column()
-        col2.prop(scene, "lutb_color_variation")
-        col2.enabled = scene.lutb_use_color_variation
-        col.prop(scene, "lutb_transparent_opacity")
-        col.enabled = scene.lutb_apply_vertex_colors
-
-        box = layout.box()
-        box.prop(scene, "lutb_setup_bake_mat")
-        col = box.column()
-        col.prop(scene, "lutb_bake_mat", text="")
-        col.enabled = scene.lutb_setup_bake_mat
-
-        box = layout.box()
-        box.prop(scene, "lutb_remove_hidden_faces")
-        col = box.column()
-        col.prop(scene, "lutb_autoremove_hidden_faces")
-        col.prop(scene, "lutb_hidden_surfaces_tris_to_quads")
-        col.prop(scene, "lutb_pixels_between_verts", slider=True)
-        col.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
-        col.enabled = scene.lutb_remove_hidden_faces
-
-        box = layout.box()
-        box.prop(scene, "lutb_setup_lod_data")
-        col = box.column()
-        col.prop(scene, "lutb_lod0")
-        col.prop(scene, "lutb_lod1")
-        col.prop(scene, "lutb_lod2")
-        col.prop(scene, "lutb_cull")
-        col.enabled = scene.lutb_setup_lod_data
-
-        layout.operator("lutb.process_model")
 
 class LUTB_OT_process_model(bpy.types.Operator):
     """Process LU model"""
@@ -424,7 +369,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 for obj in list(lod_collection.all_objects):
                     is_transparent = bool(obj.get(IS_TRANSPARENT))
 
-                    shader_prefix = "S01" if is_transparent else "S01"
+                    shader_prefix = "S01" if is_transparent else scene.lutb_shader_prefix
                     type_prefix = "Alpha" if is_transparent else "Opaque"
                     obj_name = obj.name.rsplit(".", 1)[0]
                     name = f"{shader_prefix}_{type_prefix}_{obj_name}"[:60]
@@ -465,9 +410,125 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
                 collection.children.unlink(lod_collection)
 
+class LUToolboxPanel:
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "LU Toolbox"
+
+class LUTB_PT_process_model(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Process Model"
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        layout.operator("lutb.process_model")
+
+        layout.separator()
+
+        layout.prop(scene, "lutb_process_use_gpu")
+        
+        layout.prop(scene, "lutb_combine_objects")
+        col = layout.column()
+        col.prop(scene, "lutb_combine_transparent")
+        col.enabled = scene.lutb_combine_objects
+
+class LUTB_PT_apply_vertex_colors(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Apply Vertex Colors"
+    bl_parent_id = "LUTB_PT_process_model"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.prop(context.scene, "lutb_apply_vertex_colors", text="")
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = scene.lutb_apply_vertex_colors
+
+        layout.prop(scene, "lutb_correct_colors")
+
+        layout.prop(scene, "lutb_use_color_variation")
+        col = layout.column()
+        col.prop(scene, "lutb_color_variation")
+        col.enabled = scene.lutb_use_color_variation
+
+        layout.prop(scene, "lutb_transparent_opacity")
+
+class LUTB_PT_setup_bake_mat(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Setup Bake Material"
+    bl_parent_id = "LUTB_PT_process_model"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.prop(context.scene, "lutb_setup_bake_mat", text="")
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = scene.lutb_setup_bake_mat
+
+        layout.prop(scene, "lutb_bake_mat", text="")
+
+class LUTB_PT_remove_hidden_faces(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Remove Hidden Faces"
+    bl_parent_id = "LUTB_PT_process_model"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.prop(context.scene, "lutb_remove_hidden_faces", text="")
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = scene.lutb_remove_hidden_faces
+
+        layout.prop(scene, "lutb_autoremove_hidden_faces")
+        layout.prop(scene, "lutb_hidden_surfaces_tris_to_quads")
+        layout.prop(scene, "lutb_pixels_between_verts", slider=True)
+        layout.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
+
+class LUTB_PT_setup_lod_data(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Setup LOD Data"
+    bl_parent_id = "LUTB_PT_process_model"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.prop(context.scene, "lutb_setup_lod_data", text="")
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = scene.lutb_setup_lod_data
+
+        layout.prop(scene, "lutb_shader_prefix")
+        layout.prop(scene, "lutb_lod0")
+        layout.prop(scene, "lutb_lod1")
+        layout.prop(scene, "lutb_lod2")
+        layout.prop(scene, "lutb_cull")
+
 def register():
     bpy.utils.register_class(LUTB_OT_process_model)
     bpy.utils.register_class(LUTB_PT_process_model)
+    bpy.utils.register_class(LUTB_PT_apply_vertex_colors)
+    bpy.utils.register_class(LUTB_PT_setup_bake_mat)
+    bpy.utils.register_class(LUTB_PT_remove_hidden_faces)
+    bpy.utils.register_class(LUTB_PT_setup_lod_data)
 
     bpy.types.Scene.lutb_process_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_combine_objects = BoolProperty(name="Combine Objects", default=True)
@@ -491,6 +552,7 @@ def register():
     bpy.types.Scene.lutb_hidden_surfaces_samples = IntProperty(name="Samples", min=0, default=8, soft_max=32)
 
     bpy.types.Scene.lutb_setup_lod_data = BoolProperty(name="Setup LOD Data", default=True)
+    bpy.types.Scene.lutb_shader_prefix = StringProperty(name="Shader Prefix", default="S01")
     bpy.types.Scene.lutb_lod0 = FloatProperty(name="LOD 0", soft_min=0.0, default=0.0, soft_max=25.0)
     bpy.types.Scene.lutb_lod1 = FloatProperty(name="LOD 1", soft_min=0.0, default=25.0, soft_max=50.0)
     bpy.types.Scene.lutb_lod2 = FloatProperty(name="LOD 2", soft_min=0.0, default=50.0, soft_max=500.0)
@@ -518,10 +580,15 @@ def unregister():
     del bpy.types.Scene.lutb_hidden_surfaces_samples
 
     del bpy.types.Scene.lutb_setup_lod_data
+    del bpy.types.Scene.lutb_shader_prefix
     del bpy.types.Scene.lutb_lod0
     del bpy.types.Scene.lutb_lod1
     del bpy.types.Scene.lutb_lod2
     del bpy.types.Scene.lutb_cull
 
+    bpy.utils.unregister_class(LUTB_PT_setup_lod_data)
+    bpy.utils.unregister_class(LUTB_PT_remove_hidden_faces)
+    bpy.utils.unregister_class(LUTB_PT_setup_bake_mat)
+    bpy.utils.unregister_class(LUTB_PT_apply_vertex_colors)
     bpy.utils.unregister_class(LUTB_PT_process_model)
     bpy.utils.unregister_class(LUTB_OT_process_model)
