@@ -27,9 +27,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
         scene = context.scene
 
-        if not scene.lutb_bake_mat:
-            scene.lutb_bake_mat = bpy.data.materials.get("VertexColor")
-
         scene.render.engine = "CYCLES"
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
@@ -427,7 +424,7 @@ class LUTB_PT_process_model(LUToolboxPanel, bpy.types.Panel):
 
         layout.operator("lutb.process_model")
 
-        layout.separator()
+        layout.separator(factor=0.5)
 
         layout.prop(scene, "lutb_process_use_gpu")
         
@@ -542,7 +539,7 @@ def register():
     bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True)
     
     bpy.types.Scene.lutb_setup_bake_mat = BoolProperty(name="Setup Bake Material", default=True)
-    bpy.types.Scene.lutb_bake_mat= PointerProperty(name="Bake Material", type=bpy.types.Material)
+    bpy.types.Scene.lutb_bake_mat = PointerProperty(name="Bake Material", type=bpy.types.Material)
     
     bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
         description=LUTB_OT_remove_hidden_faces.__doc__)
