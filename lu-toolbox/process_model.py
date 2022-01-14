@@ -413,12 +413,12 @@ class LUTB_OT_process_model(bpy.types.Operator):
             collection.objects.link(scene_node)
 
             ni_nodes = {}
-            for lods_collection in list(collection.children):
-                suffix = lods_collection.name[-5:]
+            for lod_collection in list(collection.children):
+                suffix = lod_collection.name[-5:]
                 if not suffix in LOD_SUFFIXES:
                     continue
 
-                for obj in list(lods_collection.all_objects):
+                for obj in list(lod_collection.all_objects):
                     is_transparent = bool(obj.get(IS_TRANSPARENT))
 
                     shader_prefix = "S01" if is_transparent else "S01"
@@ -438,9 +438,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                         node = (node_obj, node_lods)
                         ni_nodes[name] = node
 
-                    if (lod := node_lods.get(suffix, None)):
-                        lod_obj, lod_collection = lod
-                    else:
+                    if not (lod_obj := node_lods.get(suffix, None)):
                         lod_obj = bpy.data.objects.new(suffix, None)
                         lod_obj.parent = node_obj
                         collection.objects.link(lod_obj)
@@ -455,17 +453,14 @@ class LUTB_OT_process_model(bpy.types.Operator):
                             lod_obj["near_extent"] = scene.lutb_lod2
                             lod_obj["far_extent"] = scene.lutb_cull
 
-                        lod_collection = bpy.data.collections.new(suffix)
-
-                        lod = (lod_obj, lod_collection)
-                        node_lods[suffix] = lod
+                        node_lods[suffix] = lod_object
 
                     obj.parent = lod_obj
 
-                    lods_collection.objects.unlink(obj)
+                    lod_collection.objects.unlink(obj)
                     collection.objects.link(obj)
 
-                collection.children.unlink(lods_collection)
+                collection.children.unlink(lod_collection)
 
 def register():
     bpy.utils.register_class(LUTB_OT_process_model)
