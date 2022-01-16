@@ -2,8 +2,9 @@ from pathlib import Path
 import bpy
 
 LUTB_BAKE_MAT = "VertexColorAO"
+LUTB_TRANSPARENT_MAT = "VertexColorTransparent"
 LUTB_AO_ONLY_MAT = "VertexColor"
-LUTB_OTHER_MATS = ["VertexColorTransparent"]
+LUTB_OTHER_MATS = []
 
 MATERIALS_OPAQUE = {
     "26": (0.006, 0.006, 0.006, 1.0),
@@ -70,6 +71,11 @@ def get_lutb_bake_mat(parent_op=None):
         append_resources(parent_op)
     return bpy.data.materials.get(LUTB_BAKE_MAT, None)
 
+def get_lutb_transparent_mat(parent_op=None):
+    if not LUTB_TRANSPARENT_MAT in bpy.data.materials:
+        append_resources(parent_op)
+    return bpy.data.materials.get(LUTB_TRANSPARENT_MAT, None)
+
 def get_lutb_ao_only_mat(parent_op=None):
     if not LUTB_AO_ONLY_MAT in bpy.data.materials:
         append_resources(parent_op)
@@ -78,7 +84,7 @@ def get_lutb_ao_only_mat(parent_op=None):
 def append_resources(parent_op=None):
     blend_file = Path(__file__).parent / "resources.blend"
 
-    for mat_name in (LUTB_BAKE_MAT, LUTB_AO_ONLY_MAT, *LUTB_OTHER_MATS):
+    for mat_name in (LUTB_BAKE_MAT, LUTB_AO_ONLY_MAT, LUTB_TRANSPARENT_MAT, *LUTB_OTHER_MATS):
         if not mat_name in bpy.data.materials:
             bpy.ops.wm.append(directory=str(blend_file / "Material"), filename=mat_name)
 

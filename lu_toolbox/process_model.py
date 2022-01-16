@@ -314,13 +314,18 @@ class LUTB_OT_process_model(bpy.types.Operator):
         shading.color_type = "VERTEX"
 
     def setup_bake_mat(self, context, objects):
-        if not (material := context.scene.lutb_bake_mat):
-            material = context.scene.lutb_bake_mat = get_lutb_bake_mat(self)
+        if not (bake_mat := context.scene.lutb_bake_mat):
+            bake_mat = context.scene.lutb_bake_mat = get_lutb_bake_mat(self)
+        
+        mat_transparent = get_lutb_transparent_mat(self)
 
         for obj in objects:
             mesh = obj.data
             mesh.materials.clear()
-            mesh.materials.append(material)
+            if obj.get(IS_TRANSPARENT):
+                mesh.materials.append(mat_transparent)
+            else:
+                mesh.materials.append(bake_mat)
 
     def remove_hidden_faces(self, context, objects):
         scene = context.scene
