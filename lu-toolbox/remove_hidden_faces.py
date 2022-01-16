@@ -9,11 +9,16 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
     bl_idname = "lutb.remove_hidden_faces"
     bl_label = "Remove Hidden Faces"
 
-    autoremove : BoolProperty(default=True)
-    tris_to_quads : BoolProperty(default=True)
-    pixels_between_verts : IntProperty(min=0, default=5)
-    samples : IntProperty(min=0, default=8)
-    threshold : FloatProperty(min=0, default=0.01, max=1)
+    autoremove:           BoolProperty(default=True)
+    tris_to_quads:        BoolProperty(default=True)
+    pixels_between_verts: IntProperty(min=0, default=5)
+    samples:              IntProperty(min=0, default=8)
+    threshold:            FloatProperty(min=0, default=0.01, max=1)
+    use_ground_plane:     BoolProperty(default=False, description=""\
+        "Add a ground plane that contributes occlusion to the model during HSR so that "\
+        "the underside of the model gets removed. Before enabling this option, make "\
+        "sure your model does not extend below the default ground plane in LDD."
+    )
 
     @classmethod
     def poll(cls, context):
@@ -28,6 +33,26 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.tris_convert_to_quads()
             bpy.ops.object.mode_set(mode="OBJECT")
+
+        if self.use_ground_plane:
+            bpy.ops.mesh.primitive_cube_add(
+                size=1, location=(0, 0, -50), scale=(1000, 1000, 100))
+            bpy.ops.object.transform_apply()
+            ground_plane = context.object
+
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+
+            material = bpy.data.materials.new("LUTB_GROUND_PLANE")
+            ground_plane.data.materials.append(material)
+            material.use_nodes = True
+            nodes = material.node_tree.nodes
+            nodes.clear()
+            node_diffuse = nodes.new("ShaderNodeBsdfDiffuse")
+            node_diffuse.inputs["Color"].default_value = (0, 0, 0, 1)
+            node_output = nodes.new("ShaderNodeOutputMaterial")
+            material.node_tree.links.new(node_diffuse.outputs[0], node_output.inputs[0])
 
         bm = bmesh.new(use_operators=False)
         bm.from_mesh(mesh)
@@ -162,6 +187,9 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             for polygon, value in zip(mesh.polygons, average_per_face):
                 polygon.select = value < self.threshold
         
+        if self.use_ground_plane:
+            bpy.data.objects.remove(ground_plane)
+
         return {"FINISHED"}
 
 def getOverexposedMaterial(obj, image):

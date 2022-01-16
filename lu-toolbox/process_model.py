@@ -337,6 +337,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 tris_to_quads=scene.lutb_hidden_surfaces_tris_to_quads,
                 pixels_between_verts=scene.lutb_pixels_between_verts,
                 samples=scene.lutb_hidden_surfaces_samples,
+                use_ground_plane=scene.lutb_use_ground_plane,
             )
 
     def split_objects(self, context, collections):
@@ -494,6 +495,7 @@ class LUTB_PT_remove_hidden_faces(LUToolboxPanel, bpy.types.Panel):
 
         layout.prop(scene, "lutb_autoremove_hidden_faces")
         layout.prop(scene, "lutb_hidden_surfaces_tris_to_quads")
+        layout.prop(scene, "lutb_use_ground_plane")
         layout.prop(scene, "lutb_pixels_between_verts", slider=True)
         layout.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
 
@@ -547,6 +549,8 @@ def register():
     bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads = BoolProperty(name="Tris to Quads", default=True)
     bpy.types.Scene.lutb_pixels_between_verts = IntProperty(name="Pixels Between Vertices", min=0, default=5, soft_max=15)
     bpy.types.Scene.lutb_hidden_surfaces_samples = IntProperty(name="Samples", min=0, default=8, soft_max=32)
+    bpy.types.Scene.lutb_use_ground_plane = BoolProperty(name="Use Ground Plane", default=False,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["use_ground_plane"].keywords["description"])
 
     bpy.types.Scene.lutb_setup_lod_data = BoolProperty(name="Setup LOD Data", default=True)
     bpy.types.Scene.lutb_shader_prefix = StringProperty(name="Shader Prefix", default="S01")
@@ -575,6 +579,7 @@ def unregister():
     del bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads
     del bpy.types.Scene.lutb_pixels_between_verts
     del bpy.types.Scene.lutb_hidden_surfaces_samples
+    del bpy.types.Scene.lutb_use_ground_plane
 
     del bpy.types.Scene.lutb_setup_lod_data
     del bpy.types.Scene.lutb_shader_prefix
