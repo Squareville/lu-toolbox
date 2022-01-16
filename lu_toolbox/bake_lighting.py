@@ -150,8 +150,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
                 vc_lit.data.foreach_get("color", lit_data)
                 vc_alpha.data.foreach_get("color", alpha_data)
-                lit_data = lit_data.reshape((4, n_loops))
-                lit_data[:, 3] = alpha_data.reshape((4, n_loops))[:, 0]
+                lit_data = lit_data.reshape((n_loops, 4))
+                lit_data[:, 3] = alpha_data.reshape((n_loops, 4))[:, 0]
                 vc_lit.data.foreach_set("color", lit_data.flatten())
 
         for obj in selected:
