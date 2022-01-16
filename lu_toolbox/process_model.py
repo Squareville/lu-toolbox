@@ -384,6 +384,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                     type_prefix = "Alpha" if is_transparent else "Opaque"
                     obj_name = obj.name.rsplit(".", 1)[0]
                     name = f"{shader_prefix}_{type_prefix}_{obj_name}"[:60]
+                    obj.name = name
 
                     if (node := ni_nodes.get(name)):
                         node_obj, node_lods = node
