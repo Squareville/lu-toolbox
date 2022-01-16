@@ -1,6 +1,7 @@
 import bpy, bmesh
 from bpy.props import *
-from mathutils import Color
+from mathutils import Color, Matrix
+from math import radians
 import random
 import numpy as np
 from timeit import default_timer as timer
@@ -358,6 +359,10 @@ class LUTB_OT_process_model(bpy.types.Operator):
             scene_node = bpy.data.objects.new(f"SceneNode_{collection.name}", None)
             collection.objects.link(scene_node)
 
+            if scene.lutb_correct_orientation:
+                rotation = Matrix.Rotation(radians(90), 4, "X")
+                scene_node.matrix_world = rotation @ scene_node.matrix_world
+
             ni_nodes = {}
             for lod_collection in list(collection.children):
                 suffix = lod_collection.name[-5:]
@@ -377,7 +382,9 @@ class LUTB_OT_process_model(bpy.types.Operator):
                     else:
                         node_obj = bpy.data.objects.new(name, None)
                         node_obj["type"] = "NiLODNode"
+                        matrix_before = node_obj.matrix_world.copy()
                         node_obj.parent = scene_node
+                        node_obj.matrix_world = matrix_before
                         collection.objects.link(node_obj)
 
                         node_lods = {}
@@ -515,6 +522,7 @@ class LUTB_PT_setup_lod_data(LUToolboxPanel, bpy.types.Panel):
         layout.use_property_decorate = False
         layout.active = scene.lutb_setup_lod_data
 
+        layout.prop(scene, "lutb_correct_orientation")
         layout.prop(scene, "lutb_shader_prefix")
         layout.prop(scene, "lutb_lod0")
         layout.prop(scene, "lutb_lod1")
@@ -553,6 +561,7 @@ def register():
         description=LUTB_OT_remove_hidden_faces.__annotations__["use_ground_plane"].keywords["description"])
 
     bpy.types.Scene.lutb_setup_lod_data = BoolProperty(name="Setup LOD Data", default=True)
+    bpy.types.Scene.lutb_correct_orientation = BoolProperty(name="Correct Orientation", default=True)
     bpy.types.Scene.lutb_shader_prefix = StringProperty(name="Shader Prefix", default="S01")
     bpy.types.Scene.lutb_lod0 = FloatProperty(name="LOD 0", soft_min=0.0, default=0.0, soft_max=25.0)
     bpy.types.Scene.lutb_lod1 = FloatProperty(name="LOD 1", soft_min=0.0, default=25.0, soft_max=50.0)
@@ -582,6 +591,7 @@ def unregister():
     del bpy.types.Scene.lutb_use_ground_plane
 
     del bpy.types.Scene.lutb_setup_lod_data
+    del bpy.types.Scene.lutb_correct_orientation
     del bpy.types.Scene.lutb_shader_prefix
     del bpy.types.Scene.lutb_lod0
     del bpy.types.Scene.lutb_lod1
