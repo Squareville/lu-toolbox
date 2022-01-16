@@ -244,10 +244,11 @@ class LUTB_OT_process_model(bpy.types.Operator):
         scene = context.scene
 
         for obj in objects:
+            is_transparent = obj.get(IS_TRANSPARENT)
             mesh = obj.data
             n_loops = len(mesh.loops)
 
-            if not obj.get(IS_TRANSPARENT):
+            if not is_transparent:
                 if not (vc_lit := mesh.vertex_colors.get("Lit")):
                     vc_lit = mesh.vertex_colors.new(name="Lit")
                 lit_data = np.tile((0.0, 0.0, 0.0, 1.0), n_loops)
@@ -260,13 +261,15 @@ class LUTB_OT_process_model(bpy.types.Operator):
             n_materials = len(materials)
             if n_materials < 2:
                 color = materials[0].diffuse_color if materials else (0.8, 0.8, 0.8, 1.0)
+                if is_transparent:
+                    color[3] = scene.lutb_transparent_opacity / 100.0
                 color_data = np.tile(color, n_loops)
             else:
                 colors = np.zeros((n_materials, 4))
                 for i, material in enumerate(materials):
                     colors[i] = material.diffuse_color
 
-                if obj.get(IS_TRANSPARENT):
+                if is_transparent:
                     colors[:, 3] = scene.lutb_transparent_opacity / 100.0
 
                 color_indices = np.zeros(len(mesh.loops), dtype=int)
@@ -278,7 +281,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
             vc_col.data.foreach_set("color", color_data)
 
-            if not obj.get(IS_TRANSPARENT):
+            if not is_transparent:
                 if not (vc_alpha := mesh.vertex_colors.get("Alpha")):
                     vc_alpha = mesh.vertex_colors.new(name="Alpha")
                 alpha_data = np.tile((1.0, 1.0, 1.0, 1.0), n_loops)
