@@ -2,7 +2,7 @@ bl_info = {
 	"name": "LU Toolbox",
 	"author": "Bobbe",
 	"version": (1, 7, 0),
-	"blender": (3, 0, 0),
+	"blender": (2, 93, 0),
 	"location": "3D View -> Sidebar -> LU Toolbox",
 	"category": "Import-Export",
 	"support": "COMMUNITY",
