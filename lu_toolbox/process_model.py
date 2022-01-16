@@ -415,11 +415,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
                     obj.parent = lod_obj
 
-                    lod_collection.objects.unlink(obj)
-                    collection.objects.link(obj)
-
-                collection.children.unlink(lod_collection)
-
 class LUToolboxPanel:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
