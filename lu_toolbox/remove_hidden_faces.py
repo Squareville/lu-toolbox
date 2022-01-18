@@ -76,9 +76,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         if not image:
             image = bpy.data.images.new(imageName, size_pixels, size_pixels, alpha=False, float_buffer=False)
 
-        uvlayer = bm.loops.layers.uv.active
-        if not uvlayer:
-            uvlayer = bm.loops.layers.uv.new()
+        uvlayer = bm.loops.layers.uv.new("LUTB_HSR")
 
         pixelSize = 1 / size_pixels
         pbv_p_1 = self.pixels_between_verts + 1
@@ -96,6 +94,8 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
                 loop[uvlayer].uv = target + offsets[j]
 
         bm.to_mesh(mesh)
+
+        mesh.uvlayers["LUTB_HSR"].active = True
 
         # baking
 
@@ -170,14 +170,15 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
                 if value < self.threshold:
                     bm.faces.remove(face)
 
-            bm.to_mesh(mesh)
-            bm.free()
+        bm.loops.layers.uv.remove(uvlayer)
+        bm.to_mesh(mesh)
+        bm.free()
 
+        if self.autoremove:
             bpy.ops.object.mode_set(mode="EDIT")
             context.tool_settings.mesh_select_mode = (True, False, False)
             bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
             bpy.ops.object.mode_set(mode="OBJECT")
-        
         else:
             bpy.ops.object.mode_set(mode="EDIT")
             context.tool_settings.mesh_select_mode = (False, False, True)
@@ -186,7 +187,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
             for polygon, value in zip(mesh.polygons, average_per_face):
                 polygon.select = value < self.threshold
-        
+
         if self.use_ground_plane:
             bpy.data.objects.remove(ground_plane)
 
