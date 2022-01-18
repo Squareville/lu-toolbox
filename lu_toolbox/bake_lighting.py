@@ -91,6 +91,10 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         old_samples = scene.cycles.samples
         scene.cycles.samples = scene.lutb_bake_samples
 
+        old_max_bounces = scene.cycles.max_bounces
+        if scene.lutb_bake_ao_only:
+            scene.cycles.max_bounces = 0
+
         old_active_obj = bpy.context.object
         
         hidden_objects = []
@@ -162,6 +166,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
         context.view_layer.objects.active = old_active_obj
         scene.cycles.samples = old_samples
+        scene.cycles.max_bounces = old_max_bounces
         scene.world = old_world
 
         end = timer()
