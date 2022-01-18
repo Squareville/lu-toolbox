@@ -267,7 +267,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
             else:
                 colors = np.zeros((n_materials, 4))
                 for i, material in enumerate(materials):
-                    colors[i] = material.diffuse_color
+                    colors[i] = lin2srgb(material.diffuse_color)
 
                 if is_transparent:
                     colors[:, 3] = scene.lutb_transparent_opacity / 100.0
@@ -295,7 +295,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                     colors = np.zeros((n_materials, 4))
                     for i, (name, material) in enumerate(zip(mat_names, materials)):
                         color = MATERIALS_GLOW.get(name, None)
-                        colors[i] = color if color else (0.0, 0.0, 0.0, 1.0)
+                        colors[i] = lin2srgb(color) if color else (0.0, 0.0, 0.0, 1.0)
 
                     color_indices = np.zeros(len(mesh.loops), dtype=int)
                     for poly in mesh.polygons:
@@ -309,7 +309,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 vc_glow.data.foreach_set("color", glow_data)
 
             # no clue why setting .active doesn't work ...
-            mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index(vc_col.name)
+            mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index("Col")
 
         shading = context.area.spaces[0].shading
         shading.type = "SOLID"
