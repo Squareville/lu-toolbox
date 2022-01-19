@@ -95,7 +95,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         bm.to_mesh(mesh)
 
-        mesh.uvlayers["LUTB_HSR"].active = True
+        mesh.uv_layers["LUTB_HSR"].active = True
 
         # baking
 
@@ -132,7 +132,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         for p, originalValue in zip(passes, originalPasses):
             setattr(scene.render.bake, p, originalValue)
 
-        bm = bmesh.new(use_operators=False)
+        bm.clear()
         bm.from_mesh(mesh)
 
         pixels = np.array(image.pixels)
@@ -170,7 +170,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
                 if value < self.threshold:
                     bm.faces.remove(face)
 
-        bm.loops.layers.uv.remove(uvlayer)
+        bm.loops.layers.uv.remove(bm.loops.layers.uv["LUTB_HSR"])
         bm.to_mesh(mesh)
         bm.free()
 
