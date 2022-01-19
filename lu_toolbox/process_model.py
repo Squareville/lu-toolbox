@@ -85,13 +85,13 @@ class LUTB_OT_process_model(bpy.types.Operator):
         if not scene.lutb_keep_uvs:
             self.clear_uvs(all_objects)
 
-        if scene.lutb_correct_colors:
-            self.correct_colors(context, all_objects)
-
-        if scene.lutb_use_color_variation:
-            self.apply_color_variation(context, all_objects)
-
         if scene.lutb_apply_vertex_colors:
+            if scene.lutb_correct_colors:
+                self.correct_colors(context, all_objects)
+
+            if scene.lutb_use_color_variation:
+                self.apply_color_variation(context, all_objects)
+
             self.apply_vertex_colors(context, all_objects)
 
         if scene.lutb_setup_bake_mat:
