@@ -69,17 +69,17 @@ MATERIALS_GLOW = {
 def get_lutb_bake_mat(parent_op=None):
     if not LUTB_BAKE_MAT in bpy.data.materials:
         append_resources(parent_op)
-    return bpy.data.materials.get(LUTB_BAKE_MAT, None)
+    return bpy.data.materials.get(LUTB_BAKE_MAT)
 
 def get_lutb_transparent_mat(parent_op=None):
     if not LUTB_TRANSPARENT_MAT in bpy.data.materials:
         append_resources(parent_op)
-    return bpy.data.materials.get(LUTB_TRANSPARENT_MAT, None)
+    return bpy.data.materials.get(LUTB_TRANSPARENT_MAT)
 
 def get_lutb_ao_only_mat(parent_op=None):
     if not LUTB_AO_ONLY_MAT in bpy.data.materials:
         append_resources(parent_op)
-    return bpy.data.materials.get(LUTB_AO_ONLY_MAT, None)
+    return bpy.data.materials.get(LUTB_AO_ONLY_MAT)
 
 def append_resources(parent_op=None):
     blend_file = Path(__file__).parent / "resources.blend"

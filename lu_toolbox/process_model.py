@@ -41,15 +41,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
             if mat_names.issubset(MATERIALS_TRANSPARENT):
                 obj[IS_TRANSPARENT] = True
 
-        """for obj in scene.collection.all_objects:
-            if obj.type != "EMPTY":
-                matrix_world = obj.matrix_world.copy()
-                obj.parent = None
-                obj.matrix_world = matrix_world
-        for obj in list(scene.collection.all_objects):
-            if obj.type == "EMPTY":
-                bpy.data.objects.remove(obj)"""
-
         if scene.lutb_combine_objects:
             self.combine_objects(context, scene.collection.children)
 
@@ -77,6 +68,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                             opaque_objects.append(obj)
                         else:
                             transparent_objects.append(obj)
+
         all_objects = opaque_objects + transparent_objects
 
         if not all_objects:
@@ -321,7 +313,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 if set(mat_names) & set(MATERIALS_GLOW):
                     colors = np.zeros((n_materials, 4))
                     for i, (name, material) in enumerate(zip(mat_names, materials)):
-                        color = MATERIALS_GLOW.get(name, None)
+                        color = MATERIALS_GLOW.get(name)
                         colors[i] = lin2srgb(color) if color else (0.0, 0.0, 0.0, 1.0)
 
                     color_indices = np.zeros(len(mesh.loops), dtype=int)
@@ -427,7 +419,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                         node = (node_obj, node_lods)
                         ni_nodes[name] = node
 
-                    if not (lod_obj := node_lods.get(suffix, None)):
+                    if not (lod_obj := node_lods.get(suffix)):
                         lod_obj = bpy.data.objects.new(suffix, None)
                         lod_obj.parent = node_obj
                         collection.objects.link(lod_obj)
@@ -576,7 +568,6 @@ def register():
     bpy.types.Scene.lutb_keep_uvs = BoolProperty(name="Keep UVs", default=False)
 
     bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=True)
-
     bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
     bpy.types.Scene.lutb_color_variation = FloatProperty(name="Color Variation", subtype="PERCENTAGE", min=0.0, soft_max=15.0, max=100.0, default=5.0)
     
@@ -610,7 +601,6 @@ def unregister():
     del bpy.types.Scene.lutb_keep_uvs
     
     del bpy.types.Scene.lutb_correct_colors
-    
     del bpy.types.Scene.lutb_use_color_variation
     del bpy.types.Scene.lutb_color_variation
     
