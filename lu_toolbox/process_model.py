@@ -142,6 +142,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
         if not bricks:
             return
 
+        combined_bricks = {}
         for parent_empty, children in bricks.items():
             bm = bmesh.new()
             materials = {}
@@ -177,6 +178,24 @@ class LUTB_OT_process_model(bpy.types.Operator):
             bpy.data.objects.remove(parent_empty)
             for obj in children[1:]:
                 bpy.data.objects.remove(obj)
+
+            combined_bricks[combined.name] = combined
+
+        brick_base_mats = {}
+        for name, obj in combined_bricks.items():
+            if name[-4:-3] == ".":
+                base_name = name.rsplit(".", 1)[0]
+                if not (base_mats := brick_base_mats.get(base_name)):
+                    if not (obj_base := combined_bricks.get(base_name)):
+                        continue
+
+                    mats = obj_base.data.materials.values()
+                    base_mats = {mat.name.rsplit(".", 1)[0]: mat for mat in mats}
+                    brick_base_mats[base_name] = base_mats
+
+                for i, mat in enumerate(obj.data.materials):
+                    if (base_mat := base_mats.get(mat.name.rsplit(".", 1)[0])):
+                        obj.data.materials[i] = base_mat
 
         for obj in list(collection.all_objects):
             if obj.type == "EMPTY":
