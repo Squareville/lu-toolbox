@@ -26,6 +26,7 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
         layout.separator()
 
         layout.prop(scene, "lutb_bake_samples")
+        layout.prop(scene, "lutb_bake_fast_gi_bounces")
         layout.prop(scene, "lutb_bake_use_gpu")
         layout.prop(scene, "lutb_bake_use_white_ambient")
         layout.prop(scene, "lutb_bake_smooth_lit")
@@ -85,6 +86,10 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         scene.render.bake.use_pass_glossy = False
         scene.render.bake.use_pass_transmission = True
         scene.render.bake.use_pass_emit = True
+
+        scene.cycles.use_fast_gi = True
+        scene.cycles.ao_bounces = scene.lutb_bake_fast_gi_bounces
+        scene.cycles.ao_bounces_render = scene.lutb_bake_fast_gi_bounces
 
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
@@ -182,7 +187,9 @@ def register():
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_bake_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
-    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256,
+    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256, min=1,
+        description="Number of samples to render for each vertex.")
+    bpy.types.Scene.lutb_bake_fast_gi_bounces = IntProperty(name="Fast GI Bounces", default=3, min=0,
         description="Number of samples to render for each vertex.")
     bpy.types.Scene.lutb_bake_use_white_ambient = BoolProperty(name="White Ambient", default=True,
         description="Sets ambient light to pure white while baking.")
@@ -194,6 +201,7 @@ def unregister():
     del bpy.types.Scene.lutb_bake_use_gpu
     del bpy.types.Scene.lutb_bake_smooth_lit
     del bpy.types.Scene.lutb_bake_samples
+    del bpy.types.Scene.lutb_bake_fast_gi_bounces
     del bpy.types.Scene.lutb_bake_use_white_ambient
     del bpy.types.Scene.lutb_bake_ao_only
     del bpy.types.Scene.lutb_bake_use_mat_override
