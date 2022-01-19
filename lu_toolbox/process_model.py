@@ -82,6 +82,9 @@ class LUTB_OT_process_model(bpy.types.Operator):
         if not all_objects:
             return {"FINISHED"}
 
+        if not scene.lutb_keep_uvs:
+            self.clear_uvs(all_objects)
+
         if scene.lutb_correct_colors:
             self.correct_colors(context, all_objects)
 
@@ -178,6 +181,11 @@ class LUTB_OT_process_model(bpy.types.Operator):
         for obj in list(collection.all_objects):
             if obj.type == "EMPTY":
                 bpy.data.objects.remove(obj)
+
+    def clear_uvs(self, objects):
+        for obj in objects:
+            for uv_layer in reversed(obj.data.uv_layers):
+                obj.data.uv_layers.remove(uv_layer)
 
     def combine_objects(self, context, collections):
         scene = context.scene
@@ -445,6 +453,8 @@ class LUTB_PT_process_model(LUToolboxPanel, bpy.types.Panel):
         col.prop(scene, "lutb_combine_transparent")
         col.enabled = scene.lutb_combine_objects
 
+        layout.prop(scene, "lutb_keep_uvs")
+
 class LUTB_PT_apply_vertex_colors(LUToolboxPanel, bpy.types.Panel):
     bl_label = "Apply Vertex Colors"
     bl_parent_id = "LUTB_PT_process_model"
@@ -544,6 +554,8 @@ def register():
     bpy.types.Scene.lutb_process_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_combine_objects = BoolProperty(name="Combine Objects", default=True)
     bpy.types.Scene.lutb_combine_transparent = BoolProperty(name="Combine Transparent", default=False)
+    bpy.types.Scene.lutb_keep_uvs = BoolProperty(name="Keep UVs", default=False)
+
     bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=True)
 
     bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
@@ -576,6 +588,8 @@ def unregister():
     del bpy.types.Scene.lutb_process_use_gpu
     del bpy.types.Scene.lutb_combine_objects
     del bpy.types.Scene.lutb_combine_transparent
+    del bpy.types.Scene.lutb_keep_uvs
+    
     del bpy.types.Scene.lutb_correct_colors
     
     del bpy.types.Scene.lutb_use_color_variation
