@@ -1,10 +1,10 @@
 from pathlib import Path
 import bpy
 
-LUTB_BAKE_MAT = "VertexColorAO"
+LUTB_BAKE_MAT = "VertexColor"
 LUTB_TRANSPARENT_MAT = "VertexColorTransparent"
 LUTB_AO_ONLY_MAT = "VertexColor"
-LUTB_OTHER_MATS = []
+LUTB_OTHER_MATS = ["VertexColorAO"]
 
 MATERIALS_OPAQUE = {
     "26": (0.006, 0.006, 0.006, 1.0),
