@@ -101,7 +101,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             scene.cycles.max_bounces = 0
 
         old_active_obj = bpy.context.object
-        
+
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
             if obj.type == "MESH" and obj.get(IS_TRANSPARENT) and not obj.hide_render:
@@ -140,7 +140,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
             if scene.lutb_bake_use_mat_override:
                 mesh.materials[0] = scene.lutb_bake_mat_override
-        
+
             bpy.ops.object.bake(target="VERTEX_COLORS")
 
             mesh.materials[0] = old_material
