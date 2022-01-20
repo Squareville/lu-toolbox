@@ -112,6 +112,17 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             if obj.type != "MESH" or obj.get(IS_TRANSPARENT):
                 continue
 
+            other_lod_colls = set()
+            for lod_collection in obj.users_collection:
+                for parent_collection in bpy.data.collections:
+                    other_lod_colls |= set(parent_collection.children) - set((lod_collection,))
+
+            for other_lod_coll in list(other_lod_colls):
+                if other_lod_coll.hide_render:
+                    other_lod_colls.remove(other_lod_coll)
+                else:
+                    other_lod_coll.hide_render = True
+
             mesh = obj.data
 
             if not mesh.materials:
@@ -162,6 +173,9 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 lit_data = lit_data.reshape((n_loops, 4))
                 lit_data[:, 3] = alpha_data.reshape((n_loops, 4))[:, 0]
                 vc_lit.data.foreach_set("color", lit_data.flatten())
+
+            for other_lod_coll in other_lod_colls:
+                other_lod_coll.hide_render = False
 
         for obj in selected:
             obj.select_set(True)
