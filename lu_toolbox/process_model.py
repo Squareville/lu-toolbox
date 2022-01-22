@@ -98,7 +98,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
             for obj in transparent_objects:
                 obj.hide_render = False
 
-        self.split_objects(context, scene.collection.children)
+        new_objects = self.split_objects(context, scene.collection.children)
+        all_objects += new_objects
 
         if scene.lutb_setup_lod_data:
             self.setup_lod_data(context, scene.collection.children)
@@ -279,7 +280,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
             materials = mesh.materials
             n_materials = len(materials)
             if n_materials < 2:
-                color = materials[0].diffuse_color if materials else (0.8, 0.8, 0.8, 1.0)
+                color = lin2srgb(materials[0].diffuse_color) if materials else (0.8, 0.8, 0.8, 1.0)
                 if is_transparent:
                     color[3] = scene.lutb_transparent_opacity / 100.0
                 color_data = np.tile(color, n_loops)
@@ -369,12 +370,13 @@ class LUTB_OT_process_model(bpy.types.Operator):
             )
 
     def split_objects(self, context, collections):
+        new_objects = []
         for collection in collections:
             for lod_collection in collection.children:
                 for obj in list(lod_collection.objects):
                     if obj.type == "MESH":
-                        for new_obj in divide_mesh(context, obj):
-                            lod_collection.objects.link(new_obj)
+                        new_objects += divide_mesh(context, obj)
+        return new_objects
 
     def setup_lod_data(self, context, collections):
         scene = context.scene

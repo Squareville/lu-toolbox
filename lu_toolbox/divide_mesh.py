@@ -45,7 +45,7 @@ def divide_mesh(context, mesh_obj, max_verts=65536, min_div_rate=0.1):
         if div_rate < min_div_rate:
             raise Exception(f"fatal: failed to divide mesh: {div_rate} < {min_div_rate} (div_rate < min_div_rate)")
 
-        return divide_rec(obj) + divide_rec(new_obj)
+        return divide_rec(obj) + divide_rec(new_obj) + [new_obj]
 
     new_objects = divide_rec(mesh_obj)
     return new_objects
