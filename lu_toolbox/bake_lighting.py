@@ -189,7 +189,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         scene.world = old_world
 
         end = timer()
-        print(f"finished bake lighthing in {end - start:.2f}s")
+        print(f"finished bake lighting in {end - start:.2f}s")
 
         return {"FINISHED"}
 
