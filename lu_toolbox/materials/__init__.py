@@ -67,6 +67,11 @@ MATERIALS_GLOW = {
     "329": MATERIALS_OPAQUE["329"],
 }
 
+CUSTOM_VARIATION = {
+    "140": 1.0,
+    "194": 1.0,
+}
+
 def get_lutb_bake_mat(parent_op=None):
     if not LUTB_BAKE_MAT in bpy.data.materials:
         append_resources(parent_op)

@@ -256,7 +256,11 @@ class LUTB_OT_process_model(bpy.types.Operator):
             for material in obj.data.materials:
                 color = Color(material.diffuse_color[:3])
                 gamma = color.v ** (1 / 2.224)
-                gamma += random.uniform(-variation / 200, variation / 200)
+
+                custom_variation = CUSTOM_VARIATION.get(material.name.rsplit(".", 1)[0])
+                var = variation if custom_variation is None else variation * custom_variation
+                gamma += random.uniform(-var / 200, var / 200)
+
                 color.v = min(max(0, gamma), 1) ** 2.224
                 material.diffuse_color = (*color, 1.0)
 
