@@ -339,6 +339,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
         shading.type = "SOLID"
         shading.light = "FLAT"
         shading.color_type = "VERTEX"
+        shading.show_backface_culling = True
 
     def setup_bake_mat(self, context, objects):
         if not (bake_mat := context.scene.lutb_bake_mat):
