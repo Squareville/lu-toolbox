@@ -159,7 +159,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             has_edge_split_modifier = "EDGE_SPLIT" in {mod.type for mod in obj.modifiers}
             if scene.lutb_bake_smooth_lit and not has_edge_split_modifier:
                 bpy.ops.object.mode_set(mode="VERTEX_PAINT")
-                bpy.ops.paint.vert_select_all(action="SELECT")
+                if mesh.use_paint_mask or mesh.use_paint_mask_vertex:
+                    bpy.ops.paint.vert_select_all(action="SELECT")
                 bpy.ops.paint.vertex_color_smooth()
                 bpy.ops.object.mode_set(mode="OBJECT")
 
