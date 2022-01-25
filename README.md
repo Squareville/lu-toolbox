@@ -28,8 +28,8 @@ The addon is generally compatible with Blender 3.0+ but there are a few breaking
 ## Screenshots
 
 <div float="left">
-    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/blender.PNG" width="58.5%" />
-    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/windmill.png" width="41%" />
-    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/castle.png" width="45.3%" />
-    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/mech.png" width="30%" />
+    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/blender.PNG" width="50%" />
+    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/windmill.png" width="35%" />
+    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/castle.png" width="35%" />
+    <img src="https://raw.githubusercontent.com/30350n/lu-toolbox/master/images/mech.png" width="23.33%" />
 </div>
