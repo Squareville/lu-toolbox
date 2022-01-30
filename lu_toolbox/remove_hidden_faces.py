@@ -34,6 +34,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             bpy.ops.mesh.tris_convert_to_quads()
             bpy.ops.object.mode_set(mode="OBJECT")
 
+        ground_plane = None
         if self.use_ground_plane:
             bpy.ops.mesh.primitive_cube_add(
                 size=1, location=(0, 0, -50), scale=(1000, 1000, 100))
@@ -101,7 +102,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
-            if obj != target_obj and not obj.hide_render:
+            if obj != target_obj and obj != ground_plane and not obj.hide_render:
                 obj.hide_render = True
                 hidden_objects.append(obj)
 
@@ -198,7 +199,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             for polygon, value in zip(mesh.polygons, average_per_face):
                 polygon.select = value < self.threshold
 
-        if self.use_ground_plane:
+        if ground_plane:
             bpy.data.objects.remove(ground_plane)
 
         return {"FINISHED"}
