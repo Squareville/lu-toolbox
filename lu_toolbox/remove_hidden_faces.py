@@ -26,8 +26,8 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        obj = context.object
-        mesh = obj.data
+        target_obj = context.object
+        mesh = target_obj.data
 
         if self.tris_to_quads:
             bpy.ops.object.mode_set(mode="EDIT")
@@ -41,8 +41,8 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             ground_plane = context.object
 
             bpy.ops.object.select_all(action="DESELECT")
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
+            target_obj.select_set(True)
+            context.view_layer.objects.active = target_obj
 
             material = bpy.data.materials.new("LUTB_GROUND_PLANE")
             ground_plane.data.materials.append(material)
@@ -99,10 +99,16 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         # baking
 
+        hidden_objects = []
+        for obj in list(scene.collection.all_objects):
+            if obj != target_obj and not obj.hide_render:
+                obj.hide_render = True
+                hidden_objects.append(obj)
+
         originalMaterials = []
-        for i, material_slot in enumerate(obj.material_slots):
+        for i, material_slot in enumerate(target_obj.material_slots):
             originalMaterials.append(material_slot.material)
-            obj.material_slots[i].material = getOverexposedMaterial(obj, image)
+            target_obj.material_slots[i].material = getOverexposedMaterial(image)
 
         originalWorld = scene.world
         scene.world = getOverexposedWorld()
@@ -121,9 +127,12 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         context.view_layer.update()
         bpy.ops.object.bake(type="DIFFUSE", margin=0, use_clear=True)
-        
+
+        for obj in hidden_objects:
+            obj.hide_render = False
+
         for i, material in enumerate(originalMaterials):
-            obj.material_slots[i].material = material
+            target_obj.material_slots[i].material = material
 
         scene.world = originalWorld
         scene.cycles.samples = originalSamples
@@ -194,7 +203,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return {"FINISHED"}
 
-def getOverexposedMaterial(obj, image):
+def getOverexposedMaterial(image):
     name = "LUTB_overexposed"
 
     material = bpy.data.materials.get(name)
