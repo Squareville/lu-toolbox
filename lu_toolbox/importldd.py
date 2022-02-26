@@ -319,7 +319,7 @@ class Bone:
                 n44=new_matrix[3][3],
             )
         else:
-            raise(f"Bone/Part {self.refID} transformation not upported")
+            raise(f"Bone/Part {self.refID} transformation not supported")
 
 class Part:
     def __init__(self, node):
