@@ -29,6 +29,7 @@ from xml.dom import minidom
 import uuid
 import random
 import time
+import mathutils
 
 # ImportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -284,8 +285,32 @@ class Group:
 class Bone:
     def __init__(self, node):
         self.refID = node.getAttribute('refID')
-        (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
-        self.matrix = Matrix3D(n11=a,n12=b,n13=c,n14=0,n21=d,n22=e,n23=f,n24=0,n31=g,n32=h,n33=i,n34=0,n41=x,n42=y,n43=z,n44=1)
+        try:
+            (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
+            self.matrix = Matrix3D(n11=a,n12=b,n13=c,n14=0,n21=d,n22=e,n23=f,n24=0,n31=g,n32=h,n33=i,n34=0,n41=x,n42=y,n43=z,n44=1)
+        except Exception as e:
+            quat_to_matrix = mathutils.Quaternion(
+                (int(node.getAttribute('ax')), int(node.getAttribute('ay')), int(node.getAttribute('az'))),
+                math.radians(float(node.getAttribute('angle')))
+            ).to_matrix()
+            self.matrix = Matrix3D(
+                n11=quat_to_matrix[0][0],
+                n12=quat_to_matrix[0][1],
+                n13=quat_to_matrix[0][2],
+                n14=0,
+                n21=quat_to_matrix[1][0],
+                n22=quat_to_matrix[1][1],
+                n23=quat_to_matrix[1][2],
+                n24=0,
+                n31=quat_to_matrix[2][0],
+                n32=quat_to_matrix[2][1],
+                n33=quat_to_matrix[2][2],
+                n34=0,
+                n41=float(node.getAttribute('tx')),
+                n42=float(node.getAttribute('ty')),
+                n43=float(node.getAttribute('tz')),
+                n44=1
+            )
 
 class Part:
     def __init__(self, node):
