@@ -328,18 +328,26 @@ class Part:
         self.Bones = []
         self.refID = node.getAttribute('refID')
         self.designID = node.getAttribute('designID')
-        self.materials = list(map(str, node.getAttribute('materials').split(',')))
+        if node.hasAttribute('materials'):
+            self.materials = list(map(str, node.getAttribute('materials').split(',')))
+            for childnode in node.childNodes:
+                if childnode.nodeName == 'Bone':
+                    self.Bones.append(Bone(node=childnode))
+            lastm = '0'
+            for i, m in enumerate(self.materials):
+                if (m == '0'):
+                    # self.materials[i] = lastm
+                    self.materials[i] = self.materials[0] #in case of 0 choose the 'base' material
+                else:
+                    lastm = m
+        elif node.hasAttribute('materialID'):
+            self.materials = [str(node.getAttribute('materialID'))]
+            self.Bones.append(Bone(node=node))
+        else:
+            raise("Not valid Part")
 
-        lastm = '0'
-        for i, m in enumerate(self.materials):
-            if (m == '0'):
-                # self.materials[i] = lastm
-                self.materials[i] = self.materials[0] #in case of 0 choose the 'base' material
-            else:
-                lastm = m
-        for childnode in node.childNodes:
-            if childnode.nodeName == 'Bone':
-                self.Bones.append(Bone(node=childnode))
+
+
 
 class Brick:
     def __init__(self, node):
@@ -384,6 +392,12 @@ class Scene:
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
                         self.Bricks.append(Brick(node=childnode))
+            elif node.nodeName == 'Scene':
+                for childnode in node.childNodes:
+                    if childnode.nodeName == 'Model':
+                        for childnode2 in childnode.childNodes:
+                            if childnode2.nodeName == 'Group':
+                                self.Bricks.append(Brick(node=childnode2))
             elif node.nodeName == 'GroupSystems':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'GroupSystem':
