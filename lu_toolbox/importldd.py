@@ -1059,6 +1059,7 @@ class Converter:
 
                 # transform -------------------------------------------------------
                 decoCount = 0
+                last_color = 0
                 for part in geo.Parts:
 
                     written_geo = str(geo.designID) + '_' + str(part)
@@ -1120,9 +1121,10 @@ class Converter:
                     #try catch here for possible problems in materials assignment of various g, g1, g2, .. files in lxf file
                     try:
                         materialCurrentPart = pa.materials[part]
+                        last_color = pa.materials[part]
                     except IndexError:
                         print('WARNING: {0}.g{1} has NO material assignment in lxf. Replaced with color 9. Fix {0}.xml faces values.'.format(pa.designID, part))
-                        materialCurrentPart = '9'
+                        materialCurrentPart = last_color
 
                     lddmatri = self.allMaterials.getMaterialRibyId(materialCurrentPart)
                     matname = materialCurrentPart
