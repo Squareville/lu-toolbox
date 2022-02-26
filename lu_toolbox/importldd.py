@@ -249,6 +249,8 @@ class Scene:
         self.Bricks = []
         self.Scenecamera = []
         self.Groups = []
+        self.Version = "Unknown"
+        self.Name = "Unknown"
 
         if file.endswith('.lxfml'):
             with open(file, "rb") as file:
@@ -264,7 +266,6 @@ class Scene:
             self.Name = xml.firstChild.getAttribute('name')
         except Exception as e:
             print(f"ERROR: {e}")
-            self.Name = "Unknown"
         for node in xml.firstChild.childNodes:
             if node.nodeName == 'Meta':
                 for childnode in node.childNodes:
@@ -273,7 +274,6 @@ class Scene:
                             self.Version = str(childnode.getAttribute('version'))
                         except Exception as e:
                             print(f"ERROR: {e}")
-                            self.Version = "Unknown"
             elif node.nodeName == 'Bricks':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
@@ -292,7 +292,7 @@ class Scene:
                         part.isGrouped = True
                         part.GroupIDX = i
 
-        print(f'Scene "{self.Name}" Brickversion: {self.Version}')
+        # print(f'Scene "{self.Name}" Brickversion: {self.Version}')
 
 class GeometryReader:
     def __init__(self, data):
