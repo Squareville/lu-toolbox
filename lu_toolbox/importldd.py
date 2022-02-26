@@ -56,7 +56,7 @@ class ImportLDDOps(Operator, ImportHelper):
     lddLIFPath: StringProperty(
         name="",
         description="Full filepath to the LDD db folder / db.lif file",
-        default=FindDatabase(),
+        default="Z:\\run\\media\\aronwk\\storage\\lu-db",
     )
 
     renderLOD0: BoolProperty(
@@ -106,6 +106,7 @@ def convertldd_data(context, filepath, lddLIFPath, renderLOD0, renderLOD1, rende
         os.path.isdir(lddLIFPath)
         and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
     ):
+        print("USING LU LODS")
         converter.LoadScene(filename=filepath)
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
@@ -449,7 +450,7 @@ class Geometry:
         while str(GeometryLocation) in database.filelist:
             self.Parts[GeometryCount] = GeometryReader(data=database.filelist[GeometryLocation].read())
             GeometryCount += 1
-            GeometryLocation = os.path.normpath('{0}{1}{2}{3}'.format(geompath, designID,'.g',GeometryCount))
+            GeometryLocation = os.path.normpath(f'{geompath}{designID}.g{GeometryCount}')
 
         primitive = Primitive(data = database.filelist[os.path.normpath(PRIMITIVEPATH + designID + '.xml')].read())
         self.Partname = primitive.Designname
@@ -643,21 +644,6 @@ class LOCReader:
                 self.offset += 1
         return out
 
-class Materials:
-    def __init__(self, data):
-        self.Materials = {}
-        xml = minidom.parseString(data)
-        for node in xml.firstChild.childNodes:
-            if node.nodeName == 'Material':
-                self.Materials[node.getAttribute('MatID')] = Material(node.getAttribute('MatID'),r=int(node.getAttribute('Red')), g=int(node.getAttribute('Green')), b=int(node.getAttribute('Blue')), a=int(node.getAttribute('Alpha')), mtype=str(node.getAttribute('MaterialType')))
-
-    def setLOC(self, loc):
-        for key in loc.values:
-            if key in self.Materials:
-                self.Materials[key].name = loc.values[key].replace(" ", "_")
-
-    def getMaterialbyId(self, mid):
-        return self.Materials[mid]
 
 class Materials:
     def __init__(self, data):
@@ -678,17 +664,12 @@ class Materials:
                 elif usecsvcolors == False:
                     self.MaterialsRi[node.getAttribute('MatID')] = MaterialRi(materialId=node.getAttribute('MatID'),r=int(node.getAttribute('Red')), g=int(node.getAttribute('Green')), b=int(node.getAttribute('Blue')), a=int(node.getAttribute('Alpha')), materialType=str(node.getAttribute('MaterialType')))
 
-    def setLOC(self, loc):
-        for key in loc.values:
-            if key in self.MaterialsRi:
-                self.MaterialsRi[key].name = loc.values[key]
-
     def getMaterialRibyId(self, mid):
         return self.MaterialsRi[mid]
 
+
 class MaterialRi:
     def __init__(self, materialId, r, g, b, a, materialType):
-        self.name = ''
         self.materialType = materialType
         self.materialId = materialId
         self.r = self.sRGBtoLinear(r)
@@ -864,7 +845,7 @@ class DBFolderReader:
             return
         else:
             self.parse()
-            if self.fileexist(os.path.join(self.location,'Materials.xml')) and self.fileexist(os.path.join(self.location, 'info.xml')) and self.fileexist(os.path.normpath(os.path.join(self.location, MATERIALNAMESPATH, 'EN/localizedStrings.loc'))):
+            if self.fileexist(os.path.join(self.location,'Materials.xml')) and self.fileexist(os.path.join(self.location, 'info.xml')):
                 self.dbinfo = DBinfo(data=self.filelist[os.path.join(self.location,'info.xml')].read())
                 print("DB folder OK.")
                 self.initok = True
@@ -972,16 +953,14 @@ class Converter:
     def LoadDBFolder(self, dbfolderlocation):
         self.database = DBFolderReader(folder=dbfolderlocation)
 
-        if self.database.initok and self.database.fileexist(os.path.join(dbfolderlocation,'Materials.xml')) and self.database.fileexist(os.path.normpath(MATERIALNAMESPATH + 'EN/localizedStrings.loc')):
+        if self.database.initok and self.database.fileexist(os.path.join(dbfolderlocation,'Materials.xml')):
             self.allMaterials = Materials(data=self.database.filelist[os.path.normpath(os.path.join(dbfolderlocation,'Materials.xml'))].read());
-            self.allMaterials.setLOC(loc=LOCReader(data=self.database.filelist[os.path.normpath(MATERIALNAMESPATH + 'EN/localizedStrings.loc')].read()))
 
     def LoadDatabase(self,databaselocation):
         self.database = LIFReader(file=databaselocation)
 
-        if self.database.initok and self.database.fileexist(os.path.normpath('/Materials.xml')) and self.database.fileexist(os.path.normpath(MATERIALNAMESPATH + 'EN/localizedStrings.loc')):
+        if self.database.initok and self.database.fileexist(os.path.normpath('/Materials.xml')):
             self.allMaterials = Materials(data=self.database.filelist[os.path.normpath('/Materials.xml')].read());
-            self.allMaterials.setLOC(loc=LOCReader(data=self.database.filelist[os.path.normpath(MATERIALNAMESPATH + 'EN/localizedStrings.loc')].read()))
 
     def LoadScene(self,filename):
         if self.database.initok:
@@ -1196,41 +1175,6 @@ def setDBFolderVars(dbfolderlocation):
     PRIMITIVEPATH = dbfolderlocation + '/Primitives/'
     GEOMETRIEPATH = dbfolderlocation + '/Primitives/LOD0/'
     MATERIALNAMESPATH = dbfolderlocation + '/MaterialNames/'
-
-def FindDatabase():
-    lddliftree = os.getenv('LDDLIFTREE')
-    if lddliftree is not None:
-        if os.path.isdir(str(lddliftree)): #LDDLIFTREE points to folder
-            return str(lddliftree)
-        elif os.path.isfile(str(lddliftree)): #LDDLIFTREE points to file (should be db.lif)
-            return str(lddliftree)
-
-    else: #Env variable LDDLIFTREE not set. Check for default locations per different platform.
-        print(f"OS: {platform.system()}")
-        if platform.system() == 'Darwin':
-            if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db'))
-            elif os.path.isfile(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db.lif'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db.lif'))
-            else:
-                print("no LDD database found please install LEGO-Digital-Designer")
-        elif platform.system() == 'Windows':
-            if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db'))
-            elif os.path.isfile(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))
-            else:
-                print("no LDD database found please install LEGO-Digital-Designer")
-        elif platform.system() == 'Linux':
-            if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db'))
-            elif os.path.isfile(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db.lif'))):
-                return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db.lif'))
-            else:
-                print("no LDD database found please install LEGO-Digital-Designer")
-        else:
-            print('Your OS {0} is not supported yet.'.format(platform.system()))
-
 
 
 if __name__ == "__main__":
