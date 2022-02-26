@@ -260,17 +260,20 @@ class Scene:
             return
 
         xml = minidom.parseString(data)
-        self.Name = xml.firstChild.getAttribute('name')
-
+        try:
+            self.Name = xml.firstChild.getAttribute('name')
+        except Exception as e:
+            print(f"ERROR: {e}")
+            self.Name = "Unknown"
         for node in xml.firstChild.childNodes:
             if node.nodeName == 'Meta':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'BrickSet':
-                        self.Version = str(childnode.getAttribute('version'))
-            elif node.nodeName == 'Cameras':
-                for childnode in node.childNodes:
-                    if childnode.nodeName == 'Camera':
-                        self.Scenecamera.append(SceneCamera(node=childnode))
+                        try:
+                            self.Version = str(childnode.getAttribute('version'))
+                        except Exception as e:
+                            print(f"ERROR: {e}")
+                            self.Version = "Unknown"
             elif node.nodeName == 'Bricks':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Brick':
@@ -289,7 +292,7 @@ class Scene:
                         part.isGrouped = True
                         part.GroupIDX = i
 
-        print('Scene "'+ self.Name + '" Brickversion: ' + str(self.Version))
+        print(f'Scene "{self.Name}" Brickversion: {self.Version}')
 
 class GeometryReader:
     def __init__(self, data):
@@ -1123,7 +1126,7 @@ class Converter:
                         materialCurrentPart = pa.materials[part]
                         last_color = pa.materials[part]
                     except IndexError:
-                        print('WARNING: {0}.g{1} has NO material assignment in lxf. Replaced with color 9. Fix {0}.xml faces values.'.format(pa.designID, part))
+                        print(f'WARNING: {pa.designID}.g{part} has NO material assignment in lxf. Replaced with color {last_color}. Fix {pa.designID}.xml faces values.')
                         materialCurrentPart = last_color
 
                     lddmatri = self.allMaterials.getMaterialRibyId(materialCurrentPart)
@@ -1298,6 +1301,7 @@ def FindDatabase():
             return str(lddliftree)
 
     else: #Env variable LDDLIFTREE not set. Check for default locations per different platform.
+        print(f"OS: {platform.system()}")
         if platform.system() == 'Darwin':
             if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db'))):
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db'))
