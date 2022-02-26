@@ -285,31 +285,38 @@ class Group:
 class Bone:
     def __init__(self, node):
         self.refID = node.getAttribute('refID')
-        try:
+        if node.hasAttribute('transformation'):
             (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
             self.matrix = Matrix3D(n11=a,n12=b,n13=c,n14=0,n21=d,n22=e,n23=f,n24=0,n31=g,n32=h,n33=i,n34=0,n41=x,n42=y,n43=z,n44=1)
-        except Exception as e:
-            quat_to_matrix = mathutils.Quaternion(
-                (int(node.getAttribute('ax')), int(node.getAttribute('ay')), int(node.getAttribute('az'))),
-                math.radians(float(node.getAttribute('angle')))
-            ).to_matrix()
+        elif node.hasAttribute('angle'):
+            new_matrix = mathutils.Quaternion(
+                (
+                    float(node.getAttribute('ax')),
+                    float(node.getAttribute('ay')),
+                    float(node.getAttribute('az'))
+                ),
+                math.radians(
+                    float(node.getAttribute('angle'))
+                )
+            ).to_matrix().to_4x4()
+            new_matrix[3].xyz = float(node.getAttribute('tx')), float(node.getAttribute('ty')), float(node.getAttribute('tz'))
             self.matrix = Matrix3D(
-                n11=quat_to_matrix[0][0],
-                n12=quat_to_matrix[0][1],
-                n13=quat_to_matrix[0][2],
-                n14=0,
-                n21=quat_to_matrix[1][0],
-                n22=quat_to_matrix[1][1],
-                n23=quat_to_matrix[1][2],
-                n24=0,
-                n31=quat_to_matrix[2][0],
-                n32=quat_to_matrix[2][1],
-                n33=quat_to_matrix[2][2],
-                n34=0,
-                n41=float(node.getAttribute('tx')),
-                n42=float(node.getAttribute('ty')),
-                n43=float(node.getAttribute('tz')),
-                n44=1
+                n11=new_matrix[0][0],
+                n12=new_matrix[0][1],
+                n13=new_matrix[0][2],
+                n14=new_matrix[0][3],
+                n21=new_matrix[1][0],
+                n22=new_matrix[1][1],
+                n23=new_matrix[1][2],
+                n24=new_matrix[1][3],
+                n31=new_matrix[2][0],
+                n32=new_matrix[2][1],
+                n33=new_matrix[2][2],
+                n34=new_matrix[2][3],
+                n41=new_matrix[3][0],
+                n42=new_matrix[3][1],
+                n43=new_matrix[3][2],
+                n44=new_matrix[3][3],
             )
 
 class Part:
