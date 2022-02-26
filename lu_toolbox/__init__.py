@@ -23,7 +23,11 @@ for module_name in module_names:
 def register():
 	for module in modules:
 		module.register()
+	bpy.utils.register_class(ImportLDDOps)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
 	for module in modules:
 		module.unregister()
+	bpy.utils.unregister_class(ImportLDDOps)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
