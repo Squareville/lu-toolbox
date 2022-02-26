@@ -10,9 +10,14 @@ bl_info = {
 
 import bpy
 import importlib
+from .importldd import ImportLDDOps
 
 module_names = ("process_model", "bake_lighting", "remove_hidden_faces")
 modules = []
+
+# Only needed if you want to add into a dynamic menu
+def menu_func_import(self, context):
+	self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Digital Designer (.lxf/.lxfml)")
 
 for module_name in module_names:
 	if module_name in locals():
@@ -24,10 +29,10 @@ def register():
 	for module in modules:
 		module.register()
 	bpy.utils.register_class(ImportLDDOps)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+	bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 def unregister():
 	for module in modules:
 		module.unregister()
 	bpy.utils.unregister_class(ImportLDDOps)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+	bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)

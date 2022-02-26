@@ -1303,7 +1303,6 @@ def FindDatabase():
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'Library','Application Support','LEGO Company','LEGO Digital Designer','db.lif'))
             else:
                 print("no LDD database found please install LEGO-Digital-Designer")
-                os._exit()
         elif platform.system() == 'Windows':
             if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db'))):
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db'))
@@ -1311,7 +1310,6 @@ def FindDatabase():
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'AppData','Roaming','LEGO Company','LEGO Digital Designer','db.lif'))
             else:
                 print("no LDD database found please install LEGO-Digital-Designer")
-                os._exit()
         elif platform.system() == 'Linux':
             if os.path.isdir(str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db'))):
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db'))
@@ -1319,10 +1317,8 @@ def FindDatabase():
                 return str(os.path.join(str(os.getenv('USERPROFILE') or os.getenv('HOME')),'.wine','drive_c','users',os.getenv('USER'),'Application Data','LEGO Company','LEGO Digital Designer','db.lif'))
             else:
                 print("no LDD database found please install LEGO-Digital-Designer")
-                os._exit()
         else:
             print('Your OS {0} is not supported yet.'.format(platform.system()))
-            os._exit()
 
 def progress(count, total, status='', suffix = ''):
     bar_len = 40
