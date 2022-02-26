@@ -19,13 +19,6 @@ from bpy_extras.io_utils import (
         axis_conversion,
         )
 
-
-
-
-
-
-
-
 #!/usr/bin/env python
 # pylddlib version 0.4.9.7
 # based on pyldd2obj version 0.4.8 - Copyright (c) 2019 by jonnysp
@@ -363,18 +356,23 @@ class GeometryReader:
         return ret
 
 class Geometry:
-    def __init__(self, designID, database):
+    def __init__(self, designID, database, lod):
         self.designID = designID
         self.Parts = {}
         self.maxGeoBounding = -1
         self.studsFields2D = []
 
-        GeometryLocation = os.path.normpath('{0}{1}{2}'.format(GEOMETRIEPATH, designID,'.g'))
+        if lod == None:
+            geompath = GEOMETRIEPATH
+        else:
+            geompath = os.path.join(database.location, 'brickprimitives', 'lod' + lod + '/')
+
+        GeometryLocation = os.path.normpath('{0}{1}{2}'.format(geompath, designID,'.g'))
         GeometryCount = 0
         while str(GeometryLocation) in database.filelist:
             self.Parts[GeometryCount] = GeometryReader(data=database.filelist[GeometryLocation].read())
             GeometryCount += 1
-            GeometryLocation = os.path.normpath('{0}{1}{2}{3}'.format(GEOMETRIEPATH, designID,'.g',GeometryCount))
+            GeometryLocation = os.path.normpath('{0}{1}{2}{3}'.format(geompath, designID,'.g',GeometryCount))
 
         primitive = Primitive(data = database.filelist[os.path.normpath(PRIMITIVEPATH + designID + '.xml')].read())
         self.Partname = primitive.Designname
@@ -938,7 +936,7 @@ class Converter:
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self,filename, useLogoStuds, useLDDCamera):
+    def Export(self,filename, lod=None, parent_collection=None):
         invert = Matrix3D()
         #invert.n33 = -1 #uncomment to invert the Z-Axis
 
@@ -968,10 +966,15 @@ class Converter:
 
         global_matrix = axis_conversion(from_forward='-Z', from_up='Y', to_forward='Y',to_up='Z').to_4x4()
         #col = bpy.data.collections.get("Collection")
-        scene_col = bpy.data.collections.new(self.scene.Name)
-        bpy.context.scene.collection.children.link(scene_col)
-        col = bpy.data.collections.new("LOD_0")
-        scene_col.children.link(col)
+         if lod != None:
+            col = bpy.data.collections.new(self.scene.Name + '_LOD_' + lod)
+        else:
+            col = bpy.data.collections.new(self.scene.Name)
+
+        if parent_collection:
+            parent_collection.children.link(col)
+        else:
+            bpy.context.scene.collection.children.link(col)
 
         if useLDDCamera == True:
             for cam in self.scene.Scenecamera:
@@ -991,7 +994,7 @@ class Converter:
                 currentpart += 1
 
                 if pa.designID not in geometriecache:
-                    geo = Geometry(designID=pa.designID, database=self.database)
+                    geo = Geometry(designID=pa.designID, database=self.database, lod=lod)
                     progress(current ,total , "(" + geo.designID + ") " + geo.Partname, ' ')
                     geometriecache[pa.designID] = geo
 
@@ -1369,7 +1372,7 @@ def main():
         print("no LDD database found please install LEGO-Digital-Designer")
 
 
-def convertldd_data(context, filepath, lddLIFPath, useLogoStuds, useLDDCamera):
+def convertldd_data(context, filepath, lddLIFPath):
 
     converter = Converter()
     if os.path.isdir(lddLIFPath):
@@ -1381,7 +1384,21 @@ def convertldd_data(context, filepath, lddLIFPath, useLogoStuds, useLDDCamera):
         print("Found db.lif. Will use this.")
         converter.LoadDatabase(databaselocation = lddLIFPath)
 
-    if (os.path.isdir(lddLIFPath) or os.path.isfile(lddLIFPath)):
+    # print(converter.database.filelist.keys())
+
+    if (
+        os.path.isdir(lddLIFPath)
+        and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
+    ):
+        converter.LoadScene(filename=filepath)
+        col = bpy.data.collections.new(converter.scene.Name)
+        bpy.context.scene.collection.children.link(col)
+        converter.Export(filename=filepath, lod='0', parent_collection=col)
+        converter.Export(filename=filepath, lod='1', parent_collection=col)
+        converter.Export(filename=filepath, lod='2', parent_collection=col)
+        print("Using LU LODs")
+
+    elif (os.path.isdir(lddLIFPath) or os.path.isfile(lddLIFPath)):
         converter.LoadScene(filename=filepath)
         converter.Export(filename=filepath, useLogoStuds=useLogoStuds, useLDDCamera=useLDDCamera)
 
