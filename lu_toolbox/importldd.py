@@ -741,22 +741,22 @@ class LOCReader:
 class Materials:
     def __init__(self):
         self.MaterialsRi = {}
-        self.loadColor(MATERIALS_OPAQUE, "shinyPlastic")
-        self.loadColor(MATERIALS_TRANSPARENT, "Transparent")
-        self.loadColor(MATERIALS_GLOW, "Glow")
-        self.loadColor(MATERIALS_METALLIC, "Metallic")
+        self.loadColors(MATERIALS_OPAQUE, "shinyPlastic")
+        self.loadColors(MATERIALS_TRANSPARENT, "Transparent")
+        self.loadColors(MATERIALS_METALLIC, "Metallic")
+        self.loadColors(MATERIALS_GLOW, "Glow")
 
-    def loadColor(self, data, materialType):
+    def loadColors(self, data, materialType):
         for color in data:
-            # print(f'Adding materialId={color},r={data[color][0]},g={data[color][1]},b={data[color][2]},a={data[color][3]},materialType={materialType}')
-            self.MaterialsRi[color] = MaterialRi(
-                materialId=color,
-                r=data[color][0],
-                g=data[color][1],
-                b=data[color][2],
-                a=data[color][3],
-                materialType=materialType
-            )
+            if color not in self.MaterialsRi:
+                self.MaterialsRi[color] = MaterialRi(
+                    materialId=color,
+                    r=data[color][0],
+                    g=data[color][1],
+                    b=data[color][2],
+                    a=data[color][3],
+                    materialType=materialType
+                )
 
     def getMaterialRibyId(self, mid):
         if mid in self.MaterialsRi:
