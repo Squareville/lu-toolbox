@@ -112,7 +112,16 @@ def convertldd_data(context, filepath, renderLOD0, renderLOD1, renderLOD2):
     ldrawfilepath = addon_prefs.ldrawfilepath
 
     # TODO: primary brick db picker logic goes here
-    primaryBrickDBPath = lufilepath
+    primaryBrickDBPath = None
+
+    if lufilepath:
+        primaryBrickDBPath = lufilepath
+    elif lddfilepath:
+        primaryBrickDBPath = lddfilepath
+    elif ldrawfilepath:
+        primaryBrickDBPath = ldrawfilepath
+    else:
+        raise Exception("No Brick DB filepath set")
 
     converter = Converter()
 
@@ -341,7 +350,7 @@ class Bone:
                 n44=new_matrix[3][3],
             )
         else:
-            raise(f"Bone/Part {self.refID} transformation not supported")
+            raise Exception(f"Bone/Part {self.refID} transformation not supported")
 
 
 class Part:
@@ -367,7 +376,7 @@ class Part:
             self.materials = [str(node.getAttribute('materialID'))]
             self.Bones.append(Bone(node=node))
         else:
-            raise("Not valid Part")
+            raise Exception("Not valid Part")
 
 
 class Brick:
