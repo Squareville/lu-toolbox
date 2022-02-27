@@ -32,7 +32,7 @@ import random
 import time
 import mathutils
 
-from .materials import MATERIALS_ALL
+from .materials import *
 
 # ImportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
@@ -740,9 +740,14 @@ class LOCReader:
 
 
 class Materials:
-    def __init__(self, data, materialType="shinyPlastic"):
+    def __init__(self):
         self.MaterialsRi = {}
+        self.loadColor(MATERIALS_OPAQUE, "shinyPlastic")
+        self.loadColor(MATERIALS_TRANSPARENT, "Transparent")
+        self.loadColor(MATERIALS_GLOW, "Glow")
+        self.loadColor(MATERIALS_METALLIC, "Metallic")
 
+    def loadColor(self, data, materialType):
         for color in data:
             print(f'Adding materialId={color},r={data[color][0]},g={data[color][1]},b={data[color][2]},a={data[color][3]},materialType={materialType}')
             self.MaterialsRi[color] = MaterialRi(
@@ -1020,13 +1025,13 @@ class Converter:
         self.database = DBFolderReader(folder=dbfolderlocation)
 
         if self.database.initok:
-            self.allMaterials = Materials(MATERIALS_ALL);
+            self.allMaterials = Materials()
 
     def LoadDatabase(self,databaselocation):
         self.database = LIFReader(file=databaselocation)
 
         if self.database.initok:
-            self.allMaterials = Materials(MATERIALS_ALL);
+            self.allMaterials = Materials()
 
     def LoadScene(self,filename):
         if self.database.initok:
