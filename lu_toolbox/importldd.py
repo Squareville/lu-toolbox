@@ -32,6 +32,8 @@ import random
 import time
 import mathutils
 
+from .materials import MATERIALS_ALL
+
 # ImportHelper is a helper class, defines filename and
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper
@@ -102,6 +104,20 @@ class ImportLDDOps(Operator, ImportHelper):
             self.renderLOD2
         )
 
+def register():
+    bpy.utils.register_class(ImportLDDOps)
+    bpy.utils.register_class(ImportLDDPreferences)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+
+def unregister():
+    bpy.utils.unregister_class(ImportLDDOps)
+    bpy.utils.unregister_class(ImportLDDPreferences)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+
+
+# Only needed if you want to add into a dynamic menu
+def menu_func_import(self, context):
+    self.layout.operator(ImportLDDOps.bl_idname, text="LU-Toolbox: LEGO Digital Designer (.lxf/.lxfml)")
 
 def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2):
 
@@ -126,7 +142,7 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
     converter = Converter()
     start = time.process_time()
     if os.path.isdir(primaryBrickDBPath):
-        self.report({'INFO'}, 'Found DB folder. Will use this instead of db.lif!')
+        self.report({'INFO'}, 'Found DB folder.')
         setDBFolderVars(dbfolderlocation = primaryBrickDBPath)
         converter.LoadDBFolder(dbfolderlocation = primaryBrickDBPath)
 
@@ -177,7 +193,6 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
 
 PRIMITIVEPATH = '/Primitives/'
 GEOMETRIEPATH = PRIMITIVEPATH + 'LOD0/'
-MATERIALNAMESPATH = '/MaterialNames/'
 
 class Matrix3D:
     def __init__(self, n11=1,n12=0,n13=0,n14=0,n21=0,n22=1,n23=0,n24=0,n31=0,n32=0,n33=1,n34=0,n41=0,n42=0,n43=0,n44=1):
@@ -725,53 +740,36 @@ class LOCReader:
 
 
 class Materials:
-    def __init__(self, data):
+    def __init__(self, data, materialType="shinyPlastic"):
         self.MaterialsRi = {}
-        material_id_dict = {}
-        #with open('lego_colors.csv', 'r') as csvfile:
-        #    reader = csv.reader(csvfile, delimiter=',')
-        #    next(csvfile) # skip the first row
-        #    for row in reader:
-        #        material_id_dict[row[0]] = row[6], row[7], row[8], row[9]
 
-        xml = minidom.parseString(data)
-        for node in xml.firstChild.childNodes:
-            if node.nodeName == 'Material':
-                usecsvcolors = False
-                if usecsvcolors == True:
-                    self.MaterialsRi[node.getAttribute('MatID')] = MaterialRi(materialId=node.getAttribute('MatID'), r=int(material_id_dict[node.getAttribute('MatID')][0]), g=int(material_id_dict[node.getAttribute('MatID')][1]), b=int(material_id_dict[node.getAttribute('MatID')][2]), materialType=str(material_id_dict[node.getAttribute('MatID')][3]))
-                elif usecsvcolors == False:
-                    self.MaterialsRi[node.getAttribute('MatID')] = MaterialRi(materialId=node.getAttribute('MatID'),r=int(node.getAttribute('Red')), g=int(node.getAttribute('Green')), b=int(node.getAttribute('Blue')), a=int(node.getAttribute('Alpha')), materialType=str(node.getAttribute('MaterialType')))
+        for color in data:
+            print(f'Adding materialId={color},r={data[color][0]},g={data[color][1]},b={data[color][2]},a={data[color][3]},materialType={materialType}')
+            self.MaterialsRi[color] = MaterialRi(
+                materialId=color,
+                r=data[color][0],
+                g=data[color][1],
+                b=data[color][2],
+                a=data[color][3],
+                materialType=materialType
+            )
 
     def getMaterialRibyId(self, mid):
-        return self.MaterialsRi[mid]
+        if mid in self.MaterialsRi:
+            return self.MaterialsRi[mid]
+        else:
+            print(f"Material {mid} does not exist")
+            return self.MaterialsRi["26"]
 
 
 class MaterialRi:
     def __init__(self, materialId, r, g, b, a, materialType):
         self.materialType = materialType
         self.materialId = materialId
-        self.r = self.sRGBtoLinear(r)
-        self.g = self.sRGBtoLinear(g)
-        self.b = self.sRGBtoLinear(b)
-        self.a = self.sRGBtoLinear(a)
-
-    # convert from sRGB luma to linear light: https://entropymine.com/imageworsener/srgbformula/
-    def sRGBtoLinear(self, rgb):
-        rgb = float(rgb) / 255
-        if (rgb <= 0.0404482362771082):
-            lin = float(rgb / 12.92)
-        else:
-            lin = float(pow((rgb + 0.055) / 1.055, 2.4))
-        return round(lin, 9)
-
-    # convert from linear light to sRGB luma
-    def lineartosRGB(self, linear):
-        if (linear <= 0.00313066844250063):
-            rgb = float(linear * 12.92)
-        else:
-            rgb = float((1.055 * pow(linear, (1.0 / 2.4)) - 0.055))
-        return round(rgb, 5)
+        self.r = r
+        self.g = g
+        self.b = b
+        self.a = a
 
     def string(self, decorationId):
         texture_strg = ''
@@ -781,7 +779,6 @@ class MaterialRi:
         matId_or_decId = self.materialId
 
         if self.materialType == 'Transparent':
-            #bxdf_mat_str = texture_strg +
             bxdf_mat_str = '''#usda 1.0
                 (
                     defaultPrim = "material_{0}"
@@ -878,12 +875,6 @@ class MaterialRi:
         #return bxdf_mat_str
         return material
 
-class DBinfo:
-    def __init__(self, data):
-        xml = minidom.parseString(data)
-        self.Version = xml.getElementsByTagName('Bricks')[0].attributes['version'].value
-        print('DB Version: ' + str(self.Version))
-
 class DBFolderFile:
     def __init__(self, name, handle):
         self.handle = handle
@@ -914,7 +905,6 @@ class DBFolderReader:
         self.filelist = {}
         self.initok = False
         self.location = folder
-        self.dbinfo = None
 
         try:
             os.path.isdir(self.location)
@@ -924,12 +914,11 @@ class DBFolderReader:
             return
         else:
             self.parse()
-            if self.fileexist(os.path.join(self.location,'Materials.xml')) and self.fileexist(os.path.join(self.location, 'info.xml')):
-                self.dbinfo = DBinfo(data=self.filelist[os.path.join(self.location,'info.xml')].read())
+            if len(self.filelist) > 1:
                 print("DB folder OK.")
                 self.initok = True
             else:
-                print("DB folder ERROR")
+                raise Exception("DB folder ERROR")
 
     def fileexist(self, filename):
         return filename in self.filelist
@@ -946,7 +935,6 @@ class LIFReader:
         self.filelist = {}
         self.initok = False
         self.location = file
-        self.dbinfo = None
 
         try:
             self.filehandle = open(self.location, "rb")
@@ -958,8 +946,7 @@ class LIFReader:
         else:
             if self.filehandle.read(4).decode() == "LIFF":
                 self.parse(prefix='', offset=self.readInt(offset=72) + 64)
-                if self.fileexist(os.path.normpath('/Materials.xml')) and self.fileexist(os.path.normpath('/info.xml')) and self.fileexist(os.path.normpath(MATERIALNAMESPATH + 'EN/localizedStrings.loc')):
-                    self.dbinfo = DBinfo(data=self.filelist[os.path.normpath('/info.xml')].read())
+                if len(self.filelist) > 1:
                     print("Database OK.")
                     self.initok = True
                 else:
@@ -1032,20 +1019,20 @@ class Converter:
     def LoadDBFolder(self, dbfolderlocation):
         self.database = DBFolderReader(folder=dbfolderlocation)
 
-        if self.database.initok and self.database.fileexist(os.path.join(dbfolderlocation,'Materials.xml')):
-            self.allMaterials = Materials(data=self.database.filelist[os.path.normpath(os.path.join(dbfolderlocation,'Materials.xml'))].read());
+        if self.database.initok:
+            self.allMaterials = Materials(MATERIALS_ALL);
 
     def LoadDatabase(self,databaselocation):
         self.database = LIFReader(file=databaselocation)
 
-        if self.database.initok and self.database.fileexist(os.path.normpath('/Materials.xml')):
-            self.allMaterials = Materials(data=self.database.filelist[os.path.normpath('/Materials.xml')].read());
+        if self.database.initok:
+            self.allMaterials = Materials(MATERIALS_ALL);
 
     def LoadScene(self,filename):
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self,filename, lod=None, parent_collection=None):
+    def Export(self, filename, lod=None, parent_collection=None):
         invert = Matrix3D()
 
         indexOffset = 1
@@ -1079,12 +1066,14 @@ class Converter:
 
             for pa in bri.Parts:
                 currentpart += 1
-
-                if pa.designID not in geometriecache:
-                    geo = Geometry(designID=pa.designID, database=self.database, lod=lod)
-                    geometriecache[pa.designID] = geo
-                else:
-                    geo = geometriecache[pa.designID]
+                try:
+                    if pa.designID not in geometriecache:
+                        geo = Geometry(designID=pa.designID, database=self.database, lod=lod)
+                        geometriecache[pa.designID] = geo
+                    else:
+                        geo = geometriecache[pa.designID]
+                except Exception as e:
+                    print(f'WARNING: Missing geo for {pa.designID}')
 
                 # Read out 1st Bone matrix values
                 ind = 0
@@ -1197,10 +1186,10 @@ class Converter:
                         materialCurrentPart = pa.materials[part]
                         last_color = pa.materials[part]
                     except IndexError:
-                        print(
-                            f'WARNING: {pa.designID}.g{part} has NO material assignment in lxf. \
-                            Replaced with color {last_color}. Fix {pa.designID}.xml faces values.'
-                        )
+                        # print(
+                        #     f'WARNING: {pa.designID}.g{part} has NO material assignment in lxf. \
+                        #     Replaced with color {last_color}. Fix {pa.designID}.xml faces values.'
+                        # )
                         materialCurrentPart = last_color
 
                     lddmatri = self.allMaterials.getMaterialRibyId(materialCurrentPart)
