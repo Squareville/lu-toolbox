@@ -85,13 +85,13 @@ class ImportLDDOps(Operator, ImportHelper):
     renderLOD1: BoolProperty(
         name="LOD1",
         description="Render LOD1",
-        default=False,
+        default=True,
     )
 
     renderLOD2: BoolProperty(
         name="LOD2",
         description="Render LOD2",
-        default=False,
+        default=True,
     )
 
     def execute(self, context):
@@ -151,6 +151,8 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
         converter.LoadDatabase(databaselocation = primaryBrickDBPath)
     end = time.process_time()
     self.report({'INFO'}, f'Time taken to Brick DB: {end - start} seconds')
+
+    lods = []
 
     # Try to use LU's LODS
     try:
