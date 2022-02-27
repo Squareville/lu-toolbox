@@ -23,6 +23,7 @@ import os
 import platform
 import sys
 import math
+import time
 import struct
 import zipfile
 from xml.dom import minidom
@@ -52,7 +53,7 @@ class ImportLDDPreferences(AddonPreferences):
         subtype='FILE_PATH')
 
     def draw(self, context):
-        self.layout.label(text="Brick DB file paths")
+        self.layout.label(text="Brick DB file paths\nPreference Order:LU > LDD > LDraw")
         self.layout.prop(self, "lufilepath")
         self.layout.prop(self, "lddfilepath")
         self.layout.prop(self, "ldrawfilepath")
@@ -92,9 +93,8 @@ class ImportLDDOps(Operator, ImportHelper):
     )
 
     def execute(self, context):
-
-
         return convertldd_data(
+            self,
             context,
             self.filepath,
             self.renderLOD0,
@@ -103,7 +103,7 @@ class ImportLDDOps(Operator, ImportHelper):
         )
 
 
-def convertldd_data(context, filepath, renderLOD0, renderLOD1, renderLOD2):
+def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
@@ -111,7 +111,6 @@ def convertldd_data(context, filepath, renderLOD0, renderLOD1, renderLOD2):
     lddfilepath = addon_prefs.lddfilepath
     ldrawfilepath = addon_prefs.ldrawfilepath
 
-    # TODO: primary brick db picker logic goes here
     primaryBrickDBPath = None
 
     if lufilepath:
@@ -121,58 +120,59 @@ def convertldd_data(context, filepath, renderLOD0, renderLOD1, renderLOD2):
     elif ldrawfilepath:
         primaryBrickDBPath = ldrawfilepath
     else:
-        raise Exception("No Brick DB filepath set")
+        self.report({'ERROR'}, 'ERROR: Please define a Brick DB Path in the Addon Preferences')
+        return {'FINISHED'}
 
     converter = Converter()
-
+    start = time.process_time()
     if os.path.isdir(primaryBrickDBPath):
-        print("Found DB folder. Will use this instead of db.lif!")
+        self.report({'INFO'}, 'Found DB folder. Will use this instead of db.lif!')
         setDBFolderVars(dbfolderlocation = primaryBrickDBPath)
         converter.LoadDBFolder(dbfolderlocation = primaryBrickDBPath)
 
     elif os.path.isfile(primaryBrickDBPath):
-        print("Found db.lif. Will use this.")
+        self.report({'INFO'}, 'Found db.lif. Will use this.')
         converter.LoadDatabase(databaselocation = primaryBrickDBPath)
+    end = time.process_time()
+    self.report({'INFO'}, f'Time taken to Brick DB: {end - start} seconds')
 
-    # print(converter.database.filelist.keys())
+    # Try to use LU's LODS
+    try:
+        if (
+            os.path.isdir(primaryBrickDBPath)
+            and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
+        ):
+            converter.LoadScene(filename=filepath)
+            col = bpy.data.collections.new(converter.scene.Name)
+            bpy.context.scene.collection.children.link(col)
 
-    if (
-        os.path.isdir(primaryBrickDBPath)
-        and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
-    ):
-        converter.LoadScene(filename=filepath)
-        col = bpy.data.collections.new(converter.scene.Name)
-        bpy.context.scene.collection.children.link(col)
-        if renderLOD0:
-            converter.Export(filename=filepath, lod='0', parent_collection=col)
-        if renderLOD1:
-            converter.Export(filename=filepath, lod='1', parent_collection=col)
-        if renderLOD2:
-            converter.Export(filename=filepath, lod='2', parent_collection=col)
+            if renderLOD0:
+                start = time.process_time()
+                converter.Export(filename=filepath, lod='0', parent_collection=col)
+                end = time.process_time()
+                self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
+            if renderLOD1:
+                start = time.process_time()
+                converter.Export(filename=filepath, lod='1', parent_collection=col)
+                end = time.process_time()
+                self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
+            if renderLOD2:
+                start = time.process_time()
+                converter.Export(filename=filepath, lod='2', parent_collection=col)
+                end = time.process_time()
+                self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
 
-    elif (os.path.isdir(primaryBrickDBPath) or os.path.isfile(primaryBrickDBPath)):
-        converter.LoadScene(filename=filepath)
-        converter.Export(filename=filepath)
+        elif (os.path.isdir(primaryBrickDBPath) or os.path.isfile(primaryBrickDBPath)):
+            start = time.process_time()
+            converter.LoadScene(filename=filepath)
+            converter.Export(filename=filepath)
+            end = time.process_time()
+            self.report({'INFO'}, f'Time taken to Load Model: {end - start} seconds')
+    except Exception as e:
+        self.report({'ERROR'}, str(e))
 
-    else:
-        print("no LDD database found please install LEGO-Digital-Designer")
 
     return {'FINISHED'}
-
-
-# Only needed if you want to add into a dynamic menu
-def menu_func_import(self, context):
-    self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Digital Designer (.lxf/.lxfml)")
-
-
-def register():
-    bpy.utils.register_class(ImportLDDOps)
-    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
-
-
-def unregister():
-    bpy.utils.unregister_class(ImportLDDOps)
-    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
 
 PRIMITIVEPATH = '/Primitives/'
@@ -320,6 +320,7 @@ class Bone:
             (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
             self.matrix = Matrix3D(n11=a,n12=b,n13=c,n14=0,n21=d,n22=e,n23=f,n24=0,n31=g,n32=h,n33=i,n34=0,n41=x,n42=y,n43=z,n44=1)
         elif node.hasAttribute('angle'):
+            raise Exception("Cannot Properly import Old LDD Save formats")
             new_matrix = mathutils.Quaternion(
                 (
                     float(node.getAttribute('ax')),
