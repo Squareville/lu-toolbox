@@ -35,7 +35,28 @@ import mathutils
 # invoke() function which calls the file selector.
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty
-from bpy.types import Operator
+from bpy.types import Operator, AddonPreferences
+
+class ImportLDDPreferences(AddonPreferences):
+    bl_idname = __package__
+    lufilepath: StringProperty(
+        name="LU Brick DB",
+        subtype='FILE_PATH')
+
+    lddfilepath: StringProperty(
+        name="LDD Brick DB",
+        subtype='FILE_PATH')
+
+    ldrawfilepath: StringProperty(
+        name="LDraw Brick DB",
+        subtype='FILE_PATH')
+
+    def draw(self, context):
+        self.layout.label(text="Brick DB file paths")
+        self.layout.prop(self, "lufilepath")
+        self.layout.prop(self, "lddfilepath")
+        self.layout.prop(self, "ldrawfilepath")
+
 
 class ImportLDDOps(Operator, ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
@@ -50,14 +71,6 @@ class ImportLDDOps(Operator, ImportHelper):
         default="*.lxf;*.lxfml",
         options={'HIDDEN'},
         maxlen=255,  # Max internal buffer length, longer would be clamped.
-    )
-
-    # List of operator properties, the attributes will be assigned
-    # to the class instance from the operator settings before calling.
-    lddLIFPath: StringProperty(
-        name="",
-        description="Full filepath to the LDD db folder / db.lif file",
-        default="Z:\\run\\media\\aronwk\\storage\\lu-db",
     )
 
     renderLOD0: BoolProperty(
@@ -79,35 +92,45 @@ class ImportLDDOps(Operator, ImportHelper):
     )
 
     def execute(self, context):
+
+
         return convertldd_data(
             context,
             self.filepath,
-            self.lddLIFPath,
             self.renderLOD0,
             self.renderLOD1,
             self.renderLOD2
         )
 
 
-def convertldd_data(context, filepath, lddLIFPath, renderLOD0, renderLOD1, renderLOD2):
+def convertldd_data(context, filepath, renderLOD0, renderLOD1, renderLOD2):
+
+    preferences = context.preferences
+    addon_prefs = preferences.addons[__package__].preferences
+    lufilepath = addon_prefs.lufilepath
+    lddfilepath = addon_prefs.lddfilepath
+    ldrawfilepath = addon_prefs.ldrawfilepath
+
+    # TODO: primary brick db picker logic goes here
+    primaryBrickDBPath = lufilepath
 
     converter = Converter()
-    if os.path.isdir(lddLIFPath):
-        print("Found DB folder. Will use this instead of db.lif!")
-        setDBFolderVars(dbfolderlocation = lddLIFPath)
-        converter.LoadDBFolder(dbfolderlocation = lddLIFPath)
 
-    elif os.path.isfile(lddLIFPath):
+    if os.path.isdir(primaryBrickDBPath):
+        print("Found DB folder. Will use this instead of db.lif!")
+        setDBFolderVars(dbfolderlocation = primaryBrickDBPath)
+        converter.LoadDBFolder(dbfolderlocation = primaryBrickDBPath)
+
+    elif os.path.isfile(primaryBrickDBPath):
         print("Found db.lif. Will use this.")
-        converter.LoadDatabase(databaselocation = lddLIFPath)
+        converter.LoadDatabase(databaselocation = primaryBrickDBPath)
 
     # print(converter.database.filelist.keys())
 
     if (
-        os.path.isdir(lddLIFPath)
+        os.path.isdir(primaryBrickDBPath)
         and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
     ):
-        print("USING LU LODS")
         converter.LoadScene(filename=filepath)
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
@@ -117,9 +140,8 @@ def convertldd_data(context, filepath, lddLIFPath, renderLOD0, renderLOD1, rende
             converter.Export(filename=filepath, lod='1', parent_collection=col)
         if renderLOD2:
             converter.Export(filename=filepath, lod='2', parent_collection=col)
-        print("Using LU LODs")
 
-    elif (os.path.isdir(lddLIFPath) or os.path.isfile(lddLIFPath)):
+    elif (os.path.isdir(primaryBrickDBPath) or os.path.isfile(primaryBrickDBPath)):
         converter.LoadScene(filename=filepath)
         converter.Export(filename=filepath)
 
@@ -321,6 +343,7 @@ class Bone:
         else:
             raise(f"Bone/Part {self.refID} transformation not supported")
 
+
 class Part:
     def __init__(self, node):
         self.isGrouped = False
@@ -345,8 +368,6 @@ class Part:
             self.Bones.append(Bone(node=node))
         else:
             raise("Not valid Part")
-
-
 
 
 class Brick:
