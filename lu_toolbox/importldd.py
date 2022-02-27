@@ -185,8 +185,7 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load Model: {end - start} seconds')
     except Exception as e:
-        self.report({'ERROR'}, str(e))
-
+        self.report({'ERROR'}, str(sys.exc_info()[2]))
 
     return {'FINISHED'}
 
@@ -749,7 +748,7 @@ class Materials:
 
     def loadColor(self, data, materialType):
         for color in data:
-            print(f'Adding materialId={color},r={data[color][0]},g={data[color][1]},b={data[color][2]},a={data[color][3]},materialType={materialType}')
+            # print(f'Adding materialId={color},r={data[color][0]},g={data[color][1]},b={data[color][2]},a={data[color][3]},materialType={materialType}')
             self.MaterialsRi[color] = MaterialRi(
                 materialId=color,
                 r=data[color][0],
@@ -1079,6 +1078,7 @@ class Converter:
                         geo = geometriecache[pa.designID]
                 except Exception as e:
                     print(f'WARNING: Missing geo for {pa.designID}')
+                    continue
 
                 # Read out 1st Bone matrix values
                 ind = 0
