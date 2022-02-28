@@ -1,15 +1,4 @@
-bl_info = {
-    "name": "Import LEGO Digital Designer",
-    "description": "Import LEGO Digital Designer scenes in .lxf and .lxfml formats",
-    "author": "123 <123@gmail.com>",
-    "version": (0, 0, 1),
-    "blender": (2, 90, 0),
-    "location": "File > Import",
-    "warning": "Alpha",
-    "wiki_url": "https://github.com/",
-    "tracker_url": "https://github.com/",
-    "category": "Import-Export"
-    }
+# based on pyldd2obj by jonnysp and lxfml import pligin by stnng
 
 import bpy
 import mathutils
@@ -30,7 +19,6 @@ from xml.dom import minidom
 import uuid
 import random
 import time
-import mathutils
 
 from .materials import *
 

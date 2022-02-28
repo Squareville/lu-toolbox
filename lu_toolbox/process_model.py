@@ -461,7 +461,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                             elif len(lods_in_use) == 2:
                                 if "LOD_0" in lods_in_use:
                                     lod_obj["near_extent"] = scene.lutb_lod1
-                                    lod_obj["far_extent"] = scene.lutb_lodcull
+                                    lod_obj["far_extent"] = scene.lutb_cull
                                 elif "LOD_2" in lods_in_use:
                                     lod_obj["near_extent"] = scene.lutb_lod0
                                     lod_obj["far_extent"] = scene.lutb_lod2
