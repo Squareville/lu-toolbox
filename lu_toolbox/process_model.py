@@ -17,7 +17,7 @@ LOD_SUFFIXES = ("LOD_0", "LOD_1", "LOD_2")
 class LUTB_OT_process_model(bpy.types.Operator):
     """Process LU model"""
     bl_idname = "lutb.process_model"
-    bl_label = "Process Model"  
+    bl_label = "Process Model"
 
     @classmethod
     def poll(cls, context):
@@ -122,7 +122,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
             for lod_collection in collection.children:
                 if not lod_collection.name[-5:] in LOD_SUFFIXES:
                     continue
-        
+
                 for obj in lod_collection.all_objects:
                     if not (obj.type == "MESH" and obj.parent):
                         continue
@@ -149,7 +149,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                     else:
                         new_mat_index = len(materials)
                         materials[mat_name] = (material, new_mat_index)
-                    
+
                     if old_mat_index != new_mat_index:
                         for polygon in mesh.polygons:
                             if polygon.material_index == old_mat_index:
@@ -249,7 +249,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                     material.diffuse_color = color
                 elif color := MATERIALS_TRANSPARENT.get(name):
                     material.diffuse_color = color
-    
+
     def apply_color_variation(self, context, objects):
         variation = context.scene.lutb_color_variation
         for obj in objects:
@@ -344,7 +344,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
     def setup_bake_mat(self, context, objects):
         if not (bake_mat := context.scene.lutb_bake_mat):
             bake_mat = context.scene.lutb_bake_mat = get_lutb_bake_mat(self)
-        
+
         mat_transparent = get_lutb_transparent_mat(self)
 
         for obj in objects:
@@ -398,6 +398,15 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 scene_node.matrix_world = rotation @ scene_node.matrix_world
 
             ni_nodes = {}
+
+            lods_in_use = set()
+            # make list of lods so that we can better decide what
+            for lod_collection in list(collection.children):
+                suffix = lod_collection.name[-5:]
+                if not suffix in LOD_SUFFIXES:
+                    continue
+                lods_in_use.add(suffix)
+
             for lod_collection in list(collection.children):
                 suffix = lod_collection.name[-5:]
                 if not suffix in LOD_SUFFIXES:
@@ -432,14 +441,40 @@ class LUTB_OT_process_model(bpy.types.Operator):
                         collection.objects.link(lod_obj)
 
                         if suffix == LOD_SUFFIXES[0]:
-                            lod_obj["near_extent"] = scene.lutb_lod0
-                            lod_obj["far_extent"] = scene.lutb_lod1
+                            if len(lods_in_use) == 1:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_cull
+                            elif len(lods_in_use) == 2:
+                                if "LOD_1" in lods_in_use:
+                                    lod_obj["near_extent"] = scene.lutb_lod0
+                                    lod_obj["far_extent"] = scene.lutb_lod1
+                                elif "LOD_2" in lods_in_use:
+                                    lod_obj["near_extent"] = scene.lutb_lod0
+                                    lod_obj["far_extent"] = scene.lutb_lod2
+                            elif len(lods_in_use) == 3:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_lod1
                         elif suffix == LOD_SUFFIXES[1]:
-                            lod_obj["near_extent"] = scene.lutb_lod1
-                            lod_obj["far_extent"] = scene.lutb_lod2
+                            if len(lods_in_use) == 1:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_cull
+                            elif len(lods_in_use) == 2:
+                                if "LOD_0" in lods_in_use:
+                                    lod_obj["near_extent"] = scene.lutb_lod1
+                                    lod_obj["far_extent"] = scene.lutb_lodcull
+                                elif "LOD_2" in lods_in_use:
+                                    lod_obj["near_extent"] = scene.lutb_lod0
+                                    lod_obj["far_extent"] = scene.lutb_lod2
+                            elif len(lods_in_use) == 3:
+                                lod_obj["near_extent"] = scene.lutb_lod1
+                                lod_obj["far_extent"] = scene.lutb_lod2
                         elif suffix == LOD_SUFFIXES[2]:
-                            lod_obj["near_extent"] = scene.lutb_lod2
-                            lod_obj["far_extent"] = scene.lutb_cull
+                            if len(lods_in_use) == 1:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_cull
+                            elif len(lods_in_use) > 1:
+                                lod_obj["near_extent"] = scene.lutb_lod2
+                                lod_obj["far_extent"] = scene.lutb_cull
 
                         node_lods[suffix] = lod_obj
 
@@ -465,7 +500,7 @@ class LUTB_PT_process_model(LUToolboxPanel, bpy.types.Panel):
         layout.separator(factor=0.5)
 
         layout.prop(scene, "lutb_process_use_gpu")
-        
+
         layout.prop(scene, "lutb_combine_objects")
         col = layout.column()
         col.prop(scene, "lutb_combine_transparent")
@@ -577,13 +612,13 @@ def register():
     bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=True)
     bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
     bpy.types.Scene.lutb_color_variation = FloatProperty(name="Color Variation", subtype="PERCENTAGE", min=0.0, soft_max=15.0, max=100.0, default=5.0)
-    
+
     bpy.types.Scene.lutb_transparent_opacity = FloatProperty(name="Transparent Opacity", subtype="PERCENTAGE", min=0.0, max=100.0, default=58.82)
     bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True)
-    
+
     bpy.types.Scene.lutb_setup_bake_mat = BoolProperty(name="Setup Bake Material", default=True)
     bpy.types.Scene.lutb_bake_mat = PointerProperty(name="Bake Material", type=bpy.types.Material)
-    
+
     bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
         description=LUTB_OT_remove_hidden_faces.__doc__)
     bpy.types.Scene.lutb_autoremove_hidden_faces = BoolProperty(name="Autoremove", default=True)
@@ -606,17 +641,17 @@ def unregister():
     del bpy.types.Scene.lutb_combine_objects
     del bpy.types.Scene.lutb_combine_transparent
     del bpy.types.Scene.lutb_keep_uvs
-    
+
     del bpy.types.Scene.lutb_correct_colors
     del bpy.types.Scene.lutb_use_color_variation
     del bpy.types.Scene.lutb_color_variation
-    
+
     del bpy.types.Scene.lutb_transparent_opacity
     del bpy.types.Scene.lutb_apply_vertex_colors
-    
+
     del bpy.types.Scene.lutb_setup_bake_mat
     del bpy.types.Scene.lutb_bake_mat
-    
+
     del bpy.types.Scene.lutb_remove_hidden_faces
     del bpy.types.Scene.lutb_autoremove_hidden_faces
     del bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads
