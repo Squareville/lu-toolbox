@@ -1,5 +1,5 @@
-# based on pyldd2obj by jonnysp and lxfml import pligin by stnng
-
+# based on pyldd2obj by jonnysp and lxfml import plugin by sttng
+# modified by aronwk-aaron to work better with LU-Toolbox
 import bpy
 import mathutils
 from bpy_extras.io_utils import (
