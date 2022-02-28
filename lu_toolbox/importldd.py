@@ -140,17 +140,21 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
         return {'FINISHED'}
 
     converter = Converter()
-    start = time.process_time()
+
     if os.path.isdir(primaryBrickDBPath):
         self.report({'INFO'}, 'Found DB folder.')
+        start = time.process_time()
         setDBFolderVars(dbfolderlocation = primaryBrickDBPath)
         converter.LoadDBFolder(dbfolderlocation = primaryBrickDBPath)
+        end = time.process_time()
+        self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
     elif os.path.isfile(primaryBrickDBPath):
         self.report({'INFO'}, 'Found db.lif. Will use this.')
+        start = time.process_time()
         converter.LoadDatabase(databaselocation = primaryBrickDBPath)
-    end = time.process_time()
-    self.report({'INFO'}, f'Time taken to Brick DB: {end - start} seconds')
+        end = time.process_time()
+        self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
     lods = []
 
@@ -930,7 +934,15 @@ class DBFolderReader:
         return filename in self.filelist
 
     def parse(self):
+        if not os.path.exists(os.path.join(self.location,"Assemblies")) and \
+                os.path.exists(os.path.join(self.location,"brickdb.zip")):
+            print("Found brickdb.zip without uzipped files")
+            with zipfile.ZipFile(os.path.join(self.location,"brickdb.zip"), 'r') as zip_ref:
+                print("Extracting brickdb.zip")
+                zip_ref.extractall(self.location)
+        extentions = ('.g', '.g1', '.g2', '.g3', '.g4', '.xml')
         for path, subdirs, files in os.walk(self.location):
+            files = filter(lambda file: file.endswith(extentions), files)
             for name in files:
                 entryName = os.path.join(path, name)
                 self.filelist[entryName] = DBFolderFile(name=entryName, handle=entryName)
