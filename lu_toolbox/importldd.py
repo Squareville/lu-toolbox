@@ -179,7 +179,7 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load Model: {end - start} seconds')
     except Exception as e:
-        self.report({'ERROR'}, str(sys.exc_info()[2]))
+        self.report({'ERROR'}, e)
 
     return {'FINISHED'}
 
@@ -1022,6 +1022,7 @@ class LIFReader:
             return int.from_bytes(self.filehandle.read(2), byteorder='big')
 
 class Converter:
+
     def LoadDBFolder(self, dbfolderlocation):
         self.database = DBFolderReader(folder=dbfolderlocation)
 
