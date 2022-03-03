@@ -95,7 +95,7 @@ def unregister():
 
 # Only needed if you want to add into a dynamic menu
 def menu_func_import(self, context):
-    self.layout.operator(ImportLDDOps.bl_idname, text="LU-Toolbox: LEGO Digital Designer (.lxf/.lxfml)")
+    self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Exchange Format (.lxf/.lxfml)")
 
 def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2):
 
