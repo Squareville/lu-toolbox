@@ -31,22 +31,12 @@ from bpy.types import Operator, AddonPreferences
 class ImportLDDPreferences(AddonPreferences):
     bl_idname = __package__
     lufilepath: StringProperty(
-        name="LU Brick DB",
-        subtype='FILE_PATH')
-
-    lddfilepath: StringProperty(
-        name="LDD Brick DB",
-        subtype='FILE_PATH')
-
-    ldrawfilepath: StringProperty(
-        name="LDraw Brick DB",
+        name="res folder",
         subtype='FILE_PATH')
 
     def draw(self, context):
-        self.layout.label(text="Brick DB file paths\nPreference Order:LU > LDD > LDraw")
+        self.layout.label(text="Path to LU res Folder")
         self.layout.prop(self, "lufilepath")
-        self.layout.prop(self, "lddfilepath")
-        self.layout.prop(self, "ldrawfilepath")
 
 
 class ImportLDDOps(Operator, ImportHelper):
@@ -112,17 +102,11 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
     lufilepath = addon_prefs.lufilepath
-    lddfilepath = addon_prefs.lddfilepath
-    ldrawfilepath = addon_prefs.ldrawfilepath
 
     primaryBrickDBPath = None
 
     if lufilepath:
         primaryBrickDBPath = lufilepath
-    elif lddfilepath:
-        primaryBrickDBPath = lddfilepath
-    elif ldrawfilepath:
-        primaryBrickDBPath = ldrawfilepath
     else:
         self.report({'ERROR'}, 'ERROR: Please define a Brick DB Path in the Addon Preferences')
         return {'FINISHED'}
@@ -137,47 +121,27 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
         end = time.process_time()
         self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
-    elif os.path.isfile(primaryBrickDBPath):
-        self.report({'INFO'}, 'Found db.lif. Will use this.')
-        start = time.process_time()
-        converter.LoadDatabase(databaselocation = primaryBrickDBPath)
-        end = time.process_time()
-        self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
-
-    lods = []
-
     # Try to use LU's LODS
     try:
-        if (
-            os.path.isdir(primaryBrickDBPath)
-            and next((f for f in converter.database.filelist.keys() if f.startswith(os.path.join(converter.database.location, 'brickprimitives'))), None)
-        ):
-            converter.LoadScene(filename=filepath)
-            col = bpy.data.collections.new(converter.scene.Name)
-            bpy.context.scene.collection.children.link(col)
+        converter.LoadScene(filename=filepath)
+        col = bpy.data.collections.new(converter.scene.Name)
+        bpy.context.scene.collection.children.link(col)
 
-            if renderLOD0:
-                start = time.process_time()
-                converter.Export(filename=filepath, lod='0', parent_collection=col)
-                end = time.process_time()
-                self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
-            if renderLOD1:
-                start = time.process_time()
-                converter.Export(filename=filepath, lod='1', parent_collection=col)
-                end = time.process_time()
-                self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
-            if renderLOD2:
-                start = time.process_time()
-                converter.Export(filename=filepath, lod='2', parent_collection=col)
-                end = time.process_time()
-                self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
-
-        elif (os.path.isdir(primaryBrickDBPath) or os.path.isfile(primaryBrickDBPath)):
+        if renderLOD0:
             start = time.process_time()
-            converter.LoadScene(filename=filepath)
-            converter.Export(filename=filepath)
+            converter.Export(filename=filepath, lod='0', parent_collection=col)
             end = time.process_time()
-            self.report({'INFO'}, f'Time taken to Load Model: {end - start} seconds')
+            self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
+        if renderLOD1:
+            start = time.process_time()
+            converter.Export(filename=filepath, lod='1', parent_collection=col)
+            end = time.process_time()
+            self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
+        if renderLOD2:
+            start = time.process_time()
+            converter.Export(filename=filepath, lod='2', parent_collection=col)
+            end = time.process_time()
+            self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
     except Exception as e:
         self.report({'ERROR'}, e)
 
@@ -207,7 +171,10 @@ class Matrix3D:
         self.n44 = n44
 
     def __str__(self):
-        return '[{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},{14},{15}]'.format(self.n11, self.n12, self.n13,self.n14,self.n21, self.n22, self.n23,self.n24,self.n31, self.n32, self.n33,self.n34,self.n41, self.n42, self.n43,self.n44)
+        return f"[{self.n11}, {self.n12}, {self.n13}, {self.n14}, \
+            {self.n21}, {self.n22}, {self.n23}, {self.n24}, \
+            {self.n31}, {self.n32}, {self.n33}, {self.n34}, \
+            {self.n41}, {self.n42}, {self.n43}, {self.n44}]"
 
     def rotate(self,angle=0,axis=0):
         c = math.cos(angle)
@@ -260,7 +227,7 @@ class Matrix3D:
             self.n12 * other.n41 + self.n22 * other.n42 + self.n32 * other.n43 + self.n42 * other.n44,
             self.n13 * other.n41 + self.n23 * other.n42 + self.n33 * other.n43 + self.n43 * other.n44,
             self.n14 * other.n41 + self.n24 * other.n42 + self.n34 * other.n43 + self.n44 * other.n44
-            )
+        )
 
 class Point3D:
     def __init__(self, x=0,y=0,z=0):
@@ -623,7 +590,7 @@ class Field2D:
                 k += 1
 
     def __str__(self):
-        return '[type="{0}" transform="{1}" custom2DField="{2}"]'.format(self.type, self.matrix, self.custom2DField)
+        return f'[type="{self.type}" transform="{self.matrix}" custom2DField="{self.custom2DField}"]'
 
 class CollisionBox:
     def __init__(self, sX=0, sY=0, sZ=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
@@ -649,7 +616,14 @@ class CollisionBox:
         self.positions.append(Point3D(x=sX ,y=sY, z=sZ))
 
     def __str__(self):
-        return '[0,0,0] [{0},0,0] [0,{1},0] [{0},{1},0] [0,0,{2}] [0,{1},{2}] [{0},0,{2}] [{0},{1},{2}]'.format(self.corner.x, self.corner.y, self.corner.z)
+        return f'[0,0,0] \
+            [{self.corner.x},0,0] \
+            [0,{self.corner.y},0] \
+            [{self.corner.x},{self.corner.y},0] \
+            [0,0,{self.corner.z}] \
+            [0,{self.corner.y},{self.corner.z}] \
+            [{self.corner.x},0,{2}] \
+            [{self.corner.x},{1},{2}]'
 
 class Primitive:
     def __init__(self, data):
@@ -660,15 +634,28 @@ class Primitive:
         self.PhysicsAttributes = {}
         self.Bounding = {}
         self.GeometryBounding = {}
+
         xml = minidom.parseString(data)
         root = xml.documentElement
+
         for node in root.childNodes:
             if node.__class__.__name__.lower() == 'comment':
                 self.comment = node[0].nodeValue
             if node.nodeName == 'Flex':
                 for node in node.childNodes:
                     if node.nodeName == 'Bone':
-                        self.Bones.append(Bone2(boneId=int(node.getAttribute('boneId')), angle=float(node.getAttribute('angle')), ax=float(node.getAttribute('ax')), ay=float(node.getAttribute('ay')), az=float(node.getAttribute('az')), tx=float(node.getAttribute('tx')), ty=float(node.getAttribute('ty')), tz=float(node.getAttribute('tz'))))
+                        self.Bones.append(
+                            Bone2(
+                                boneId=int(node.getAttribute('boneId')),
+                                angle=float(node.getAttribute('angle')),
+                                ax=float(node.getAttribute('ax')),
+                                ay=float(node.getAttribute('ay')),
+                                az=float(node.getAttribute('az')),
+                                tx=float(node.getAttribute('tx')),
+                                ty=float(node.getAttribute('ty')),
+                                tz=float(node.getAttribute('tz'))
+                            )
+                        )
             elif node.nodeName == 'Annotations':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Annotation' and childnode.hasAttribute('designname'):
@@ -676,60 +663,67 @@ class Primitive:
             elif node.nodeName == 'Collision':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Box':
-                        self.CollisionBoxes.append(CollisionBox(sX=float(childnode.getAttribute('sX')), sY=float(childnode.getAttribute('sY')), sZ=float(childnode.getAttribute('sZ')), angle=float(childnode.getAttribute('angle')), ax=float(childnode.getAttribute('ax')), ay=float(childnode.getAttribute('ay')), az=float(childnode.getAttribute('az')), tx=float(childnode.getAttribute('tx')), ty=float(childnode.getAttribute('ty')), tz=float(childnode.getAttribute('tz'))))
+                        self.CollisionBoxes.append(
+                            CollisionBox(
+                                sX=float(childnode.getAttribute('sX')),
+                                sY=float(childnode.getAttribute('sY')),
+                                sZ=float(childnode.getAttribute('sZ')),
+                                angle=float(childnode.getAttribute('angle')),
+                                ax=float(childnode.getAttribute('ax')),
+                                ay=float(childnode.getAttribute('ay')),
+                                az=float(childnode.getAttribute('az')),
+                                tx=float(childnode.getAttribute('tx')),
+                                ty=float(childnode.getAttribute('ty')),
+                                tz=float(childnode.getAttribute('tz'))
+                            )
+                        )
             elif node.nodeName == 'PhysicsAttributes':
-                self.PhysicsAttributes = {"inertiaTensor": node.getAttribute('inertiaTensor'),"centerOfMass": node.getAttribute('centerOfMass'),"mass": node.getAttribute('mass'),"frictionType": node.getAttribute('frictionType')}
+                self.PhysicsAttributes = {
+                    "inertiaTensor": node.getAttribute('inertiaTensor'),
+                    "centerOfMass": node.getAttribute('centerOfMass'),
+                    "mass": node.getAttribute('mass'),
+                    "frictionType": node.getAttribute('frictionType')
+                }
             elif node.nodeName == 'Bounding':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'AABB':
-                        self.Bounding = {"minX": childnode.getAttribute('minX'), "minY": childnode.getAttribute('minY'), "minZ": childnode.getAttribute('minZ'), "maxX": childnode.getAttribute('maxX'), "maxY": childnode.getAttribute('maxY'), "maxZ": childnode.getAttribute('maxZ')}
+                        self.Bounding = {
+                            "minX": childnode.getAttribute('minX'),
+                            "minY": childnode.getAttribute('minY'),
+                            "minZ": childnode.getAttribute('minZ'),
+                            "maxX": childnode.getAttribute('maxX'),
+                            "maxY": childnode.getAttribute('maxY'),
+                            "maxZ": childnode.getAttribute('maxZ')
+                        }
             elif node.nodeName == 'GeometryBounding':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'AABB':
-                        self.GeometryBounding = {"minX": childnode.getAttribute('minX'), "minY": childnode.getAttribute('minY'), "minZ": childnode.getAttribute('minZ'), "maxX": childnode.getAttribute('maxX'), "maxY": childnode.getAttribute('maxY'), "maxZ": childnode.getAttribute('maxZ')}
+                        self.GeometryBounding = {
+                            "minX": childnode.getAttribute('minX'),
+                            "minY": childnode.getAttribute('minY'),
+                            "minZ": childnode.getAttribute('minZ'),
+                            "maxX": childnode.getAttribute('maxX'),
+                            "maxY": childnode.getAttribute('maxY'),
+                            "maxZ": childnode.getAttribute('maxZ')
+                        }
             elif node.nodeName == 'Connectivity':
                 for childnode in node.childNodes:
                     if childnode.nodeName == 'Custom2DField':
-                        self.Fields2D.append(Field2D(type=int(childnode.getAttribute('type')), width=int(childnode.getAttribute('width')), height=int(childnode.getAttribute('height')), angle=float(childnode.getAttribute('angle')), ax=float(childnode.getAttribute('ax')), ay=float(childnode.getAttribute('ay')), az=float(childnode.getAttribute('az')), tx=float(childnode.getAttribute('tx')), ty=float(childnode.getAttribute('ty')), tz=float(childnode.getAttribute('tz')), field2DRawData=str(childnode.firstChild.data)))
-
-
-class LOCReader:
-    def __init__(self, data):
-        self.offset = 0
-        self.values = {}
-        self.data = data
-        if sys.version_info < (3, 0):
-            if ord(self.data[0]) == 50 and ord(self.data[1]) == 0:
-                self.offset += 2
-                while self.offset < len(self.data):
-                    key = self.NextString().replace('Material', '')
-                    value = self.NextString()
-                    self.values[key] = value
-        else:
-            if int(self.data[0]) == 50 and int(self.data[1]) == 0:
-                self.offset += 2
-                while self.offset < len(self.data):
-                    key = self.NextString().replace('Material', '')
-                    value = self.NextString()
-                    self.values[key] = value
-
-    def NextString(self):
-        out = ''
-        if sys.version_info < (3, 0):
-            t = ord(self.data[self.offset])
-            self.offset += 1
-            while not t == 0:
-                out = '{0}{1}'.format(out,chr(t))
-                t = ord(self.data[self.offset])
-                self.offset += 1
-        else:
-            t = int(self.data[self.offset])
-            self.offset += 1
-            while not t == 0:
-                out = '{0}{1}'.format(out,chr(t))
-                t = int(self.data[self.offset])
-                self.offset += 1
-        return out
+                        self.Fields2D.append(
+                            Field2D(
+                                type=int(childnode.getAttribute('type')),
+                                width=int(childnode.getAttribute('width')),
+                                height=int(childnode.getAttribute('height')),
+                                angle=float(childnode.getAttribute('angle')),
+                                ax=float(childnode.getAttribute('ax')),
+                                ay=float(childnode.getAttribute('ay')),
+                                az=float(childnode.getAttribute('az')),
+                                tx=float(childnode.getAttribute('tx')),
+                                ty=float(childnode.getAttribute('ty')),
+                                tz=float(childnode.getAttribute('tz')),
+                                field2DRawData=str(childnode.firstChild.data)
+                            )
+                        )
 
 
 class Materials:
@@ -776,102 +770,12 @@ class MaterialRi:
         rgb_or_dec_str = '({0}, {1}, {2})'.format(self.r, self.g, self.b)
         matId_or_decId = self.materialId
 
-        if self.materialType == 'Transparent':
-            bxdf_mat_str = '''#usda 1.0
-                (
-                    defaultPrim = "material_{0}"
-                )
-                def Xform "material_{0}" (
-                    assetInfo = {{
-                        asset identifier = @material_{0}.usda@
-                        string name = "material_{0}"
-                    }}
-                    kind = "component"
-                )
-                {{
-                    def Material "material_{0}a"
-                    {{
-
-                        token outputs:surface.connect = <surfaceShader.outputs:surface>
-                {1}
-                        def Shader "surfaceShader"
-                        {{
-                            uniform token info:id = "UsdPreviewSurface"
-                            color3f inputs:diffuseColor{3} = {2}
-                            float inputs:metallic = 0
-                            float inputs:roughness = 0
-                            float inputs:opacity = 0.2
-                            token outputs:surface
-                        }}
-
-                    }}
-                }}\n'''.format(matId_or_decId, texture_strg, rgb_or_dec_str, ref_strg, round(random.random(), 3))
-
-        elif self.materialType == 'Metallic':
-            bxdf_mat_str = '''#usda 1.0
-                (
-                    defaultPrim = "material_{0}"
-                )
-                def Xform "material_{0}" (
-                    assetInfo = {{
-                        asset identifier = @material_{0}.usda@
-                        string name = "material_{0}"
-                    }}
-                    kind = "component"
-                )
-                {{
-                    def Material "material_{0}a"
-                    {{
-
-                        token outputs:surface.connect = <surfaceShader.outputs:surface>
-                {1}
-                        def Shader "surfaceShader"
-                        {{
-                            uniform token info:id = "UsdPreviewSurface"
-                            color3f inputs:diffuseColor{3} = {2}
-                            float inputs:metallic = 1
-                            float inputs:roughness = 0
-                            token outputs:surface
-                        }}
-
-                    }}
-                }}\n'''.format(matId_or_decId, texture_strg, rgb_or_dec_str, ref_strg, round(random.random(), 3))
-
-        else:
-            bxdf_mat_str = '''#usda 1.0
-                (
-                    defaultPrim = "material_{0}"
-                )
-                def Xform "material_{0}" (
-                    assetInfo = {{
-                        asset identifier = @material_{0}.usda@
-                        string name = "material_{0}"
-                    }}
-                    kind = "component"
-                )
-                {{
-                    def Material "material_{0}a"
-                    {{
-
-                        token outputs:surface.connect = <surfaceShader.outputs:surface>
-                {1}
-                        def Shader "surfaceShader"
-                        {{
-                            uniform token info:id = "UsdPreviewSurface"
-                            color3f inputs:diffuseColor{3} = {2}
-                            float inputs:metallic = 0
-                            float inputs:roughness = 0
-                            token outputs:surface
-                        }}
-
-                    }}
-                }}\n'''.format(matId_or_decId, texture_strg, rgb_or_dec_str, ref_strg, round(random.random(), 3))
-
         material = bpy.data.materials.new(matId_or_decId)
         material.diffuse_color = (self.r, self.g, self.b, self.a)
 
         #return bxdf_mat_str
         return material
+
 
 class DBFolderFile:
     def __init__(self, name, handle):
@@ -887,16 +791,6 @@ class DBFolderFile:
         finally:
             reader.close()
 
-class LIFFile:
-    def __init__(self, name, offset, size, handle):
-        self.handle = handle
-        self.name = name
-        self.offset = offset
-        self.size = size
-
-    def read(self):
-        self.handle.seek(self.offset, 0)
-        return self.handle.read(self.size)
 
 class DBFolderReader:
     def __init__(self, folder):
@@ -935,102 +829,11 @@ class DBFolderReader:
                 entryName = os.path.join(path, name)
                 self.filelist[entryName] = DBFolderFile(name=entryName, handle=entryName)
 
-class LIFReader:
-    def __init__(self, file):
-        self.packedFilesOffset = 84
-        self.filelist = {}
-        self.initok = False
-        self.location = file
-
-        try:
-            self.filehandle = open(self.location, "rb")
-            self.filehandle.seek(0, 0)
-        except Exception as e:
-            self.initok = False
-            print("Database FAIL")
-            return
-        else:
-            if self.filehandle.read(4).decode() == "LIFF":
-                self.parse(prefix='', offset=self.readInt(offset=72) + 64)
-                if len(self.filelist) > 1:
-                    print("Database OK.")
-                    self.initok = True
-                else:
-                    print("Database ERROR")
-            else:
-                print("Database FAIL")
-                self.initok = False
-
-    def fileexist(self,filename):
-        return filename in self.filelist
-
-    def parse(self, prefix='', offset=0):
-        if prefix == '':
-            offset += 36
-        else:
-            offset += 4
-
-        count = self.readInt(offset=offset)
-
-        for i in range(0, count):
-            offset += 4
-            entryType = self.readShort(offset=offset)
-            offset += 6
-
-            entryName = '{0}{1}'.format(prefix,'/');
-            self.filehandle.seek(offset + 1, 0)
-            if sys.version_info < (3, 0):
-                t = ord(self.filehandle.read(1))
-            else:
-                t = int.from_bytes(self.filehandle.read(1), byteorder='big')
-
-            while not t == 0:
-                entryName ='{0}{1}'.format(entryName,chr(t))
-                self.filehandle.seek(1, 1)
-                if sys.version_info < (3, 0):
-                    t = ord(self.filehandle.read(1))
-                else:
-                    t = int.from_bytes(self.filehandle.read(1), byteorder='big')
-
-                offset += 2
-
-            offset += 6
-            self.packedFilesOffset += 20
-
-            if entryType == 1:
-                offset = self.parse(prefix=entryName, offset=offset)
-            elif entryType == 2:
-                fileSize = self.readInt(offset=offset) - 20
-                self.filelist[os.path.normpath(entryName)] = LIFFile(name=entryName, offset=self.packedFilesOffset, size=fileSize, handle=self.filehandle)
-                offset += 24
-                self.packedFilesOffset += fileSize
-
-        return offset
-
-    def readInt(self, offset=0):
-        self.filehandle.seek(offset, 0)
-        if sys.version_info < (3, 0):
-            return int(struct.unpack('>i', self.filehandle.read(4))[0])
-        else:
-            return int.from_bytes(self.filehandle.read(4), byteorder='big')
-
-    def readShort(self, offset=0):
-        self.filehandle.seek(offset, 0)
-        if sys.version_info < (3, 0):
-            return int(struct.unpack('>h', self.filehandle.read(2))[0])
-        else:
-            return int.from_bytes(self.filehandle.read(2), byteorder='big')
 
 class Converter:
 
     def LoadDBFolder(self, dbfolderlocation):
         self.database = DBFolderReader(folder=dbfolderlocation)
-
-        if self.database.initok:
-            self.allMaterials = Materials()
-
-    def LoadDatabase(self,databaselocation):
-        self.database = LIFReader(file=databaselocation)
 
         if self.database.initok:
             self.allMaterials = Materials()
