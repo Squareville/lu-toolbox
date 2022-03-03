@@ -264,6 +264,7 @@ class Point2D:
     def __init__(self, x=0,y=0):
         self.x = x
         self.y = y
+
     def __str__(self):
         return '[{0},{1}]'.format(self.x, self.y * -1)
     def string(self,prefix="t"):
@@ -276,11 +277,24 @@ class Face:
         self.a = a
         self.b = b
         self.c = c
+
     def string(self,prefix="f", indexOffset=0 ,textureoffset=0):
         if textureoffset == 0:
-            return prefix + ' {0}//{0} {1}//{1} {2}//{2}\n'.format(self.a + indexOffset, self.b + indexOffset, self.c + indexOffset)
+            return prefix + ' {0}//{0} {1}//{1} {2}//{2}\n'.format(
+                self.a + indexOffset,
+                self.b + indexOffset,
+                self.c + indexOffset
+            )
         else:
-            return prefix + ' {0}/{3}/{0} {1}/{4}/{1} {2}/{5}/{2}\n'.format(self.a + indexOffset, self.b + indexOffset, self.c + indexOffset,self.a + textureoffset, self.b + textureoffset, self.c + textureoffset)
+            return prefix + ' {0}/{3}/{0} {1}/{4}/{1} {2}/{5}/{2}\n'.format(
+                self.a + indexOffset,
+                self.b + indexOffset,
+                self.c + indexOffset,
+                self.a + textureoffset,
+                self.b + textureoffset,
+                self.c + textureoffset
+            )
+
     def __str__(self):
         return '[{0},{1},{2}]'.format(self.a, self.b, self.c)
 
@@ -293,38 +307,33 @@ class Bone:
         self.refID = node.getAttribute('refID')
         if node.hasAttribute('transformation'):
             (a, b, c, d, e, f, g, h, i, x, y, z) = map(float, node.getAttribute('transformation').split(','))
-            self.matrix = Matrix3D(n11=a,n12=b,n13=c,n14=0,n21=d,n22=e,n23=f,n24=0,n31=g,n32=h,n33=i,n34=0,n41=x,n42=y,n43=z,n44=1)
+            self.matrix = Matrix3D(
+                n11=a, n12=b, n13=c, n14=0,
+                n21=d, n22=e, n23=f, n24=0,
+                n31=g, n32=h, n33=i, n34=0,
+                n41=x, n42=y, n43=z, n44=1
+            )
         elif node.hasAttribute('angle'):
             raise Exception("Cannot Properly import Old LDD Save formats")
-            new_matrix = mathutils.Quaternion(
-                (
-                    float(node.getAttribute('ax')),
-                    float(node.getAttribute('ay')),
-                    float(node.getAttribute('az'))
-                ),
-                math.radians(
-                    float(node.getAttribute('angle'))
+            rotationMatrix = Matrix3D()
+            rotationMatrix.rotate(
+                angle = -float(node.getAttribute('angle')) * math.pi / 180.0,
+                axis = Point3D(
+                    x=float(node.getAttribute('ax')),
+                    y=float(node.getAttribute('ay')),
+                    z=float(node.getAttribute('az'))
                 )
-            ).to_matrix().to_4x4()
-            new_matrix[3].xyz = float(node.getAttribute('tx')), float(node.getAttribute('ty')), float(node.getAttribute('tz'))
-            self.matrix = Matrix3D(
-                n11=new_matrix[0][0],
-                n12=new_matrix[0][1],
-                n13=new_matrix[0][2],
-                n14=new_matrix[0][3],
-                n21=new_matrix[1][0],
-                n22=new_matrix[1][1],
-                n23=new_matrix[1][2],
-                n24=new_matrix[1][3],
-                n31=new_matrix[2][0],
-                n32=new_matrix[2][1],
-                n33=new_matrix[2][2],
-                n34=new_matrix[2][3],
-                n41=new_matrix[3][0],
-                n42=new_matrix[3][1],
-                n43=new_matrix[3][2],
-                n44=new_matrix[3][3],
+                )
+            p = Point3D(
+                x=float(node.getAttribute('tx')),
+                y=float(node.getAttribute('ty')),
+                z=float(node.getAttribute('tz'))
             )
+            p.transformW(rotationMatrix)
+            rotationMatrix.n41 = p.x
+            rotationMatrix.n42 = p.y
+            rotationMatrix.n43 = p.z
+            self.matrix = rotationMatrix
         else:
             raise Exception(f"Bone/Part {self.refID} transformation not supported")
 
