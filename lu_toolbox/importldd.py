@@ -314,10 +314,10 @@ class Bone:
                 n41=x, n42=y, n43=z, n44=1
             )
         elif node.hasAttribute('angle'):
-            raise Exception("Cannot Properly import Old LDD Save formats")
+            # raise Exception("Cannot Properly import Old LDD Save formats")
             rotationMatrix = Matrix3D()
             rotationMatrix.rotate(
-                angle = -float(node.getAttribute('angle')) * math.pi / 180.0,
+                angle = float(node.getAttribute('angle')) * math.pi / 180.0,
                 axis = Point3D(
                     x=float(node.getAttribute('ax')),
                     y=float(node.getAttribute('ay')),
@@ -518,11 +518,15 @@ class Geometry:
         primitive = Primitive(data = database.filelist[os.path.normpath(PRIMITIVEPATH + designID + '.xml')].read())
         self.Partname = primitive.Designname
         try:
-            geoBoundingList = [abs(float(primitive.Bounding['minX']) - float(primitive.Bounding['maxX'])), abs(float(primitive.Bounding['minY']) - float(primitive.Bounding['maxY'])), abs(float(primitive.Bounding['minZ']) - float(primitive.Bounding['maxZ']))]
+            geoBoundingList = [
+                abs(float(primitive.Bounding['minX']) - float(primitive.Bounding['maxX'])),
+                abs(float(primitive.Bounding['minY']) - float(primitive.Bounding['maxY'])),
+                abs(float(primitive.Bounding['minZ']) - float(primitive.Bounding['maxZ']))
+            ]
             geoBoundingList.sort()
             self.maxGeoBounding = geoBoundingList[-1]
         except KeyError as e:
-            print('\nBounding errror in part {0}: {1}\n'.format(designID, e))
+            print(f'\nBounding errror in part {designID}: {e}\n')
 
         # preflex
         for part in self.Parts:
@@ -862,7 +866,6 @@ class Converter:
 
         start_time = time.time()
 
-
         total = len(self.scene.Bricks)
         current = 0
         currentpart = 0
@@ -976,11 +979,10 @@ class Converter:
                             single_vert = mathutils.Vector([point.x, point.y, point.z])
                             verts.append(single_vert)
 
-                        usenormal = False
-                        if usenormal == True: # write normals in case flag True
-                            # WARNING: SOME PARTS MAY HAVE BAD NORMALS. FOR EXAMPLE MAYBE PART: (85861) PL.ROUND 1X1 W. THROUGHG. HOLE
-                            for normal in geo.Parts[part].outnormals:
-                                i = 0
+                        normals = []
+                        for point in geo.Parts[part].outnormals:
+                            single_norm = mathutils.Vector([point.x, point.y, point.z])
+                            normals.append(single_norm)
 
                         faces = []
                         for face in geo.Parts[part].faces:
@@ -991,6 +993,10 @@ class Converter:
                         mesh.from_pydata(verts, edges, faces)
                         for f in mesh.polygons:
                             f.use_smooth = True
+                        vindex = 0
+                        for vertex in mesh.vertices:
+                            vertex.normal = normals[vindex]
+                            vindex += 1
                         geometriecache["geo{0}".format(written_geo)] = mesh
 
                     else:
