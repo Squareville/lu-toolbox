@@ -399,13 +399,10 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
             ni_nodes = {}
 
-            lods_in_use = set()
-            # make list of lods so that we can better decide what
-            for lod_collection in list(collection.children):
-                suffix = lod_collection.name[-5:]
-                if not suffix in LOD_SUFFIXES:
-                    continue
-                lods_in_use.add(suffix)
+            used_lods = set()
+            for lod_collection in collection.children:
+                if (suffix := lod_collection.name[-5:]) in LOD_SUFFIXES:
+                    used_lods.add(suffix)
 
             for lod_collection in list(collection.children):
                 suffix = lod_collection.name[-5:]
@@ -440,41 +437,31 @@ class LUTB_OT_process_model(bpy.types.Operator):
                         lod_obj.parent = node_obj
                         collection.objects.link(lod_obj)
 
-                        if suffix == LOD_SUFFIXES[0]:
-                            if len(lods_in_use) == 1:
-                                lod_obj["near_extent"] = scene.lutb_lod0
-                                lod_obj["far_extent"] = scene.lutb_cull
-                            elif len(lods_in_use) == 2:
-                                if "LOD_1" in lods_in_use:
-                                    lod_obj["near_extent"] = scene.lutb_lod0
-                                    lod_obj["far_extent"] = scene.lutb_lod1
-                                elif "LOD_2" in lods_in_use:
-                                    lod_obj["near_extent"] = scene.lutb_lod0
-                                    lod_obj["far_extent"] = scene.lutb_lod2
-                            elif len(lods_in_use) == 3:
-                                lod_obj["near_extent"] = scene.lutb_lod0
+                        if len(used_lods) == 1:
+                            lod_obj["near_extent"] = scene.lutb_lod0
+                            lod_obj["far_extent"] = scene.lutb_cull
+
+                        elif suffix == LOD_SUFFIXES[0]:
+                            lod_obj["near_extent"] = scene.lutb_lod0
+                            if used_lods == {suffix, LOD_SUFFIXES[2]}:
+                                lod_obj["far_extent"] = scene.lutb_lod2
+                            else:
                                 lod_obj["far_extent"] = scene.lutb_lod1
+
                         elif suffix == LOD_SUFFIXES[1]:
-                            if len(lods_in_use) == 1:
-                                lod_obj["near_extent"] = scene.lutb_lod0
+                            if used_lods == {LOD_SUFFIXES[0], suffix}:
+                                lod_obj["near_extent"] = scene.lutb_lod1
                                 lod_obj["far_extent"] = scene.lutb_cull
-                            elif len(lods_in_use) == 2:
-                                if "LOD_0" in lods_in_use:
-                                    lod_obj["near_extent"] = scene.lutb_lod1
-                                    lod_obj["far_extent"] = scene.lutb_cull
-                                elif "LOD_2" in lods_in_use:
-                                    lod_obj["near_extent"] = scene.lutb_lod0
-                                    lod_obj["far_extent"] = scene.lutb_lod2
-                            elif len(lods_in_use) == 3:
+                            elif used_lods == {suffix, LOD_SUFFIXES[2]}:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_lod2
+                            elif used_lods == {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[2]}:
                                 lod_obj["near_extent"] = scene.lutb_lod1
                                 lod_obj["far_extent"] = scene.lutb_lod2
+
                         elif suffix == LOD_SUFFIXES[2]:
-                            if len(lods_in_use) == 1:
-                                lod_obj["near_extent"] = scene.lutb_lod0
-                                lod_obj["far_extent"] = scene.lutb_cull
-                            elif len(lods_in_use) > 1:
-                                lod_obj["near_extent"] = scene.lutb_lod2
-                                lod_obj["far_extent"] = scene.lutb_cull
+                            lod_obj["near_extent"] = scene.lutb_lod2
+                            lod_obj["far_extent"] = scene.lutb_cull
 
                         node_lods[suffix] = lod_obj
 
