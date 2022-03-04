@@ -117,6 +117,11 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         cycles = scene_override.cycles
         cycles.samples = self.samples
         cycles.use_denoising = False
+        cycles.use_fast_gi = False
+        cycles.max_bounces = 8
+        cycles.diffuse_bounces = 8
+        cycles.sample_clamp_direct = 0.0
+        cycles.sample_clamp_indirect = 0.0
 
         bake_settings = scene_override.render.bake
         bake_settings.target = "IMAGE_TEXTURES"
