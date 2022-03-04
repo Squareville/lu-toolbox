@@ -68,39 +68,36 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         start = timer()
 
         scene = context.scene
+        scene_override = scene.copy()
 
-        old_world = scene.world
         if scene.lutb_bake_use_white_ambient:
             if not (world := bpy.data.worlds.get(WHITE_AMBIENT)):
                 world = bpy.data.worlds.new(WHITE_AMBIENT)
                 world.color = (1.0, 1.0, 1.0)
-            scene.world = world
+            scene_override.world = world
 
-        scene.render.engine = "CYCLES"
-        scene.cycles.bake_type = "COMBINED"
-        scene.cycles.caustics_reflective = False
-        scene.cycles.caustics_refractive = False
-        scene.render.bake.use_pass_direct = True
-        scene.render.bake.use_pass_indirect = True
-        scene.render.bake.use_pass_diffuse = True
-        scene.render.bake.use_pass_glossy = False
-        scene.render.bake.use_pass_transmission = True
-        scene.render.bake.use_pass_emit = True
+        render = scene_override.render
+        cycles = scene_override.cycles
+        render.engine = "CYCLES"
+        cycles.use_denoising = False
+        cycles.bake_type = "COMBINED"
+        cycles.caustics_reflective = False
+        cycles.caustics_refractive = False
+        render.bake.use_pass_direct = True
+        render.bake.use_pass_indirect = True
+        render.bake.use_pass_diffuse = True
+        render.bake.use_pass_glossy = False
+        render.bake.use_pass_transmission = True
+        render.bake.use_pass_emit = True
 
-        scene.cycles.use_fast_gi = True
-        scene.cycles.ao_bounces = scene.lutb_bake_fast_gi_bounces
-        scene.cycles.ao_bounces_render = scene.lutb_bake_fast_gi_bounces
+        cycles.use_fast_gi = True
+        cycles.ao_bounces_render = scene.lutb_bake_fast_gi_bounces
 
-        scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
+        cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
-        old_samples = scene.cycles.samples
-        scene.cycles.samples = scene.lutb_bake_samples
-
-        old_max_bounces = scene.cycles.max_bounces
+        cycles.samples = scene.lutb_bake_samples
         if scene.lutb_bake_ao_only:
-            scene.cycles.max_bounces = 0
-
-        old_active_obj = bpy.context.object
+            cycles.max_bounces = 0
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
@@ -108,14 +105,16 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 obj.hide_render = True
                 hidden_objects.append(obj)
 
+        old_active_obj = context.object
         for obj in (selected := list(context.selected_objects)):
             if obj.type != "MESH" or obj.get(IS_TRANSPARENT):
                 continue
 
             other_lod_colls = set()
             for lod_collection in obj.users_collection:
-                for parent_collection in bpy.data.collections:
-                    other_lod_colls |= set(parent_collection.children) - set((lod_collection,))
+                for collection in bpy.data.collections:
+                    if lod_collection.name in collection.children:
+                        other_lod_colls |= set(collection.children) - {lod_collection,}
 
             for other_lod_coll in list(other_lod_colls):
                 if other_lod_coll.hide_render:
@@ -152,7 +151,9 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             if scene.lutb_bake_use_mat_override:
                 mesh.materials[0] = scene.lutb_bake_mat_override
 
-            bpy.ops.object.bake(target="VERTEX_COLORS")
+            context_override = context.copy()
+            context_override["scene"] = scene_override
+            bpy.ops.object.bake(context_override, target="VERTEX_COLORS")
 
             mesh.materials[0] = old_material
 
@@ -179,6 +180,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             for other_lod_coll in other_lod_colls:
                 other_lod_coll.hide_render = False
 
+        bpy.data.scenes.remove(scene_override)
+
         for obj in selected:
             obj.select_set(True)
 
@@ -186,9 +189,6 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             obj.hide_render = False
 
         context.view_layer.objects.active = old_active_obj
-        scene.cycles.samples = old_samples
-        scene.cycles.max_bounces = old_max_bounces
-        scene.world = old_world
 
         end = timer()
         print(f"finished bake lighting in {end - start:.2f}s")

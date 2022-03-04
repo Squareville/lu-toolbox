@@ -100,9 +100,11 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         # baking
 
+        scene_override = scene.copy()
+
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
-            if obj != target_obj and obj != ground_plane and not obj.hide_render:
+            if obj not in {target_obj, ground_plane} and not obj.hide_render:
                 obj.hide_render = True
                 hidden_objects.append(obj)
 
@@ -111,36 +113,27 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             originalMaterials.append(material_slot.material)
             target_obj.material_slots[i].material = getOverexposedMaterial(image)
 
-        originalWorld = scene.world
-        scene.world = getOverexposedWorld()
+        scene_override.world = getOverexposedWorld()
+        cycles = scene_override.cycles
+        cycles.samples = self.samples
+        cycles.use_denoising = False
 
-        originalSamples = scene.cycles.samples
-        scene.cycles.samples = self.samples
+        bake_settings = scene_override.render.bake
+        bake_settings.target = "IMAGE_TEXTURES"
+        bake_settings.use_pass_direct = True
+        bake_settings.use_pass_indirect = True
+        bake_settings.use_pass_diffuse = True
 
-        originalTarget = scene.render.bake.target
-        scene.render.bake.target = "IMAGE_TEXTURES"
-
-        passes = ("use_pass_direct", "use_pass_indirect", "use_pass_diffuse")
-        originalPasses = []
-        for p in passes:
-            originalPasses.append(getattr(scene.render.bake, p))
-            setattr(scene.render.bake, p, True)
-
-        context.view_layer.update()
-        bpy.ops.object.bake(type="DIFFUSE", margin=0, use_clear=True)
+        context_override = context.copy()
+        context_override["scene"] = scene_override
+        bpy.ops.object.bake(context_override, type="DIFFUSE", margin=0, use_clear=True)
+        bpy.data.scenes.remove(scene_override)
 
         for obj in hidden_objects:
             obj.hide_render = False
 
         for i, material in enumerate(originalMaterials):
             target_obj.material_slots[i].material = material
-
-        scene.world = originalWorld
-        scene.cycles.samples = originalSamples
-        scene.render.bake.target = originalTarget
-
-        for p, originalValue in zip(passes, originalPasses):
-            setattr(scene.render.bake, p, originalValue)
 
         bm.clear()
         bm.from_mesh(mesh)
