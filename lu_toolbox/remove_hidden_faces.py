@@ -5,20 +5,26 @@ import math
 import numpy as np
 
 class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
-    """Remove faces hidden inside the model (using Cycles baking)"""
+    """Remove hidden interior geometry from the model."""
     bl_idname = "lutb.remove_hidden_faces"
     bl_label = "Remove Hidden Faces"
 
-    autoremove:           BoolProperty(default=True)
-    tris_to_quads:        BoolProperty(default=True)
-    pixels_between_verts: IntProperty(min=0, default=5)
-    samples:              IntProperty(min=0, default=8)
+    autoremove:           BoolProperty(default=True, description=""\
+        "Automatically remove hidden polygons. "\
+        "Disabling this results in hidden polygons being assigned to the objects Face Maps"
+    )
+    tris_to_quads:        BoolProperty(default=True, description=""\
+        "Convert models triangles to quads for faster, more efficient HSR. "\
+        "Quads are then converted back to tris afterwards. "\
+        "Disabling this may result in slower HSR processing")
+    pixels_between_verts: IntProperty(min=0, default=5, description="")
+    samples:              IntProperty(min=0, default=8, description=""\
+        "Number of samples to render for HSR")
     threshold:            FloatProperty(min=0, default=0.01, max=1)
     use_ground_plane:     BoolProperty(default=False, description=""\
         "Add a ground plane that contributes occlusion to the model during HSR so that "\
         "the underside of the model gets removed. Before enabling this option, make "\
-        "sure your model does not extend below the default ground plane in LDD."
-    )
+        "sure your model does not extend below the default ground plane in LDD")
 
     @classmethod
     def poll(cls, context):

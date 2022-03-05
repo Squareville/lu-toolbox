@@ -203,12 +203,11 @@ def register():
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_bake_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
-    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256, min=1,
-        description="Number of samples to render for each vertex.")
-    bpy.types.Scene.lutb_bake_fast_gi_bounces = IntProperty(name="Fast GI Bounces", default=3, min=0,
-        description="Number of samples to render for each vertex.")
-    bpy.types.Scene.lutb_bake_use_white_ambient = BoolProperty(name="White Ambient", default=True,
-        description="Sets ambient light to pure white while baking.")
+    bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256, min=1, description=""\
+        "Number of samples to render for each vertex")
+    bpy.types.Scene.lutb_bake_fast_gi_bounces = IntProperty(name="Fast GI Bounces", default=3, min=0)
+    bpy.types.Scene.lutb_bake_use_white_ambient = BoolProperty(name="White Ambient", default=True, description=""\
+        "Sets ambient light to pure white while baking")
     bpy.types.Scene.lutb_bake_ao_only = BoolProperty(name="AO Only", default=False)
     bpy.types.Scene.lutb_bake_use_mat_override = BoolProperty(name="Material Override")
     bpy.types.Scene.lutb_bake_mat_override = PointerProperty(name="Override Material", type=bpy.types.Material)

@@ -560,8 +560,8 @@ class LUTB_PT_remove_hidden_faces(LUToolboxPanel, bpy.types.Panel):
         layout.prop(scene, "lutb_pixels_between_verts", slider=True)
         layout.prop(scene, "lutb_hidden_surfaces_samples", slider=True)
 
-class LUTB_PT_setup_lod_data(LUToolboxPanel, bpy.types.Panel):
-    bl_label = "Setup LOD Data"
+class LUTB_PT_setup_metadata(LUToolboxPanel, bpy.types.Panel):
+    bl_label = "Setup Metadata"
     bl_parent_id = "LUTB_PT_process_model"
     bl_options = {"DEFAULT_CLOSED"}
 
@@ -589,29 +589,47 @@ def register():
     bpy.utils.register_class(LUTB_PT_apply_vertex_colors)
     bpy.utils.register_class(LUTB_PT_setup_bake_mat)
     bpy.utils.register_class(LUTB_PT_remove_hidden_faces)
-    bpy.utils.register_class(LUTB_PT_setup_lod_data)
+    bpy.utils.register_class(LUTB_PT_setup_metadata)
 
     bpy.types.Scene.lutb_process_use_gpu = BoolProperty(name="Use GPU", default=True)
-    bpy.types.Scene.lutb_combine_objects = BoolProperty(name="Combine Objects", default=True)
-    bpy.types.Scene.lutb_combine_transparent = BoolProperty(name="Combine Transparent", default=False)
-    bpy.types.Scene.lutb_keep_uvs = BoolProperty(name="Keep UVs", default=False)
+    bpy.types.Scene.lutb_combine_objects = BoolProperty(name="Combine Objects", default=True, description=""\
+        "Combine opaque bricks")
+    bpy.types.Scene.lutb_combine_transparent = BoolProperty(name="Combine Transparent", default=False, description=""\
+        "Combine transparent bricks")
+    bpy.types.Scene.lutb_keep_uvs = BoolProperty(name="Keep UVs", default=False, description=""\
+        "Keep the original mesh UVs. Disabling this results in a model with no UVs")
 
-    bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=True)
-    bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True)
-    bpy.types.Scene.lutb_color_variation = FloatProperty(name="Color Variation", subtype="PERCENTAGE", min=0.0, soft_max=15.0, max=100.0, default=5.0)
+    bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=False, description=""\
+        "Remap model colors to LU color palette. "\
+        "Note: Models imported with Toolbox import with the LU color palette natively")
+    bpy.types.Scene.lutb_use_color_variation = BoolProperty(name="Apply Color Variation", default=True, description=""\
+        "Randomly shift the brightness value of each brick")
+    bpy.types.Scene.lutb_color_variation = FloatProperty(name="Color Variation", subtype="PERCENTAGE", min=0.0, soft_max=15.0, max=100.0, default=5.0, description=""\
+        "Percentage of brightness value shift. Higher values result in more variation")
 
-    bpy.types.Scene.lutb_transparent_opacity = FloatProperty(name="Transparent Opacity", subtype="PERCENTAGE", min=0.0, max=100.0, default=58.82)
-    bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True)
+    bpy.types.Scene.lutb_transparent_opacity = FloatProperty(name="Transparent Opacity", subtype="PERCENTAGE", min=0.0, max=100.0, default=58.82, description=""\
+        "Percentage of transparent brick opacity. "\
+        "This controls how see-through the models transparent bricks appear in LU. "\
+        "Lower values result in more transparency")
+    bpy.types.Scene.lutb_apply_vertex_colors = BoolProperty(name="Apply Vertex Colors", default=True, description=""\
+        "Apply vertex colors to the model")
 
-    bpy.types.Scene.lutb_setup_bake_mat = BoolProperty(name="Setup Bake Material", default=True)
-    bpy.types.Scene.lutb_bake_mat = PointerProperty(name="Bake Material", type=bpy.types.Material)
+    bpy.types.Scene.lutb_setup_bake_mat = BoolProperty(name="Setup Bake Material", default=True, description=""\
+        "Apply new material to opaque bricks")
+    bpy.types.Scene.lutb_bake_mat = PointerProperty(name="Bake Material", type=bpy.types.Material, description=""\
+        "Choose the material that gets added to opaque bricks. "\
+        "If left blank, defaults to VertexColor material")
 
     bpy.types.Scene.lutb_remove_hidden_faces = BoolProperty(name="Remove Hidden Faces", default=True,
         description=LUTB_OT_remove_hidden_faces.__doc__)
-    bpy.types.Scene.lutb_autoremove_hidden_faces = BoolProperty(name="Autoremove", default=True)
-    bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads = BoolProperty(name="Tris to Quads", default=True)
-    bpy.types.Scene.lutb_pixels_between_verts = IntProperty(name="Pixels Between Vertices", min=0, default=5, soft_max=15)
-    bpy.types.Scene.lutb_hidden_surfaces_samples = IntProperty(name="Samples", min=0, default=8, soft_max=32)
+    bpy.types.Scene.lutb_autoremove_hidden_faces = BoolProperty(name="Autoremove", default=True,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["autoremove"].keywords["description"])
+    bpy.types.Scene.lutb_hidden_surfaces_tris_to_quads = BoolProperty(name="Tris to Quads", default=True,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["tris_to_quads"].keywords["description"])
+    bpy.types.Scene.lutb_pixels_between_verts = IntProperty(name="Pixels Between Vertices", min=0, default=5, soft_max=15,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["pixels_between_verts"].keywords["description"])
+    bpy.types.Scene.lutb_hidden_surfaces_samples = IntProperty(name="Samples", min=0, default=8, soft_max=32,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["samples"].keywords["description"])
     bpy.types.Scene.lutb_use_ground_plane = BoolProperty(name="Use Ground Plane", default=False,
         description=LUTB_OT_remove_hidden_faces.__annotations__["use_ground_plane"].keywords["description"])
 
@@ -654,7 +672,7 @@ def unregister():
     del bpy.types.Scene.lutb_lod2
     del bpy.types.Scene.lutb_cull
 
-    bpy.utils.unregister_class(LUTB_PT_setup_lod_data)
+    bpy.utils.unregister_class(LUTB_PT_setup_metadata)
     bpy.utils.unregister_class(LUTB_PT_remove_hidden_faces)
     bpy.utils.unregister_class(LUTB_PT_setup_bake_mat)
     bpy.utils.unregister_class(LUTB_PT_apply_vertex_colors)
