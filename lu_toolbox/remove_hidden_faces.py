@@ -4,6 +4,8 @@ from bpy.props import IntProperty, FloatProperty, BoolProperty
 import math
 import numpy as np
 
+LUTB_HSR_ID = "LUTB_HSR"
+
 class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
     """Remove hidden interior geometry from the model."""
     bl_idname = "lutb.remove_hidden_faces"
@@ -40,27 +42,6 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             bpy.ops.mesh.tris_convert_to_quads()
             bpy.ops.object.mode_set(mode="OBJECT")
 
-        ground_plane = None
-        if self.use_ground_plane:
-            bpy.ops.mesh.primitive_cube_add(
-                size=1, location=(0, 0, -50), scale=(1000, 1000, 100))
-            bpy.ops.object.transform_apply()
-            ground_plane = context.object
-
-            bpy.ops.object.select_all(action="DESELECT")
-            target_obj.select_set(True)
-            context.view_layer.objects.active = target_obj
-
-            material = bpy.data.materials.new("LUTB_GROUND_PLANE")
-            ground_plane.data.materials.append(material)
-            material.use_nodes = True
-            nodes = material.node_tree.nodes
-            nodes.clear()
-            node_diffuse = nodes.new("ShaderNodeBsdfDiffuse")
-            node_diffuse.inputs["Color"].default_value = (0, 0, 0, 1)
-            node_output = nodes.new("ShaderNodeOutputMaterial")
-            material.node_tree.links.new(node_diffuse.outputs[0], node_output.inputs[0])
-
         bm = bmesh.new(use_operators=False)
         bm.from_mesh(mesh)
 
@@ -71,41 +52,107 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
                 self.report({"ERROR"}, "Mesh needs to consist of tris or quads only!")
                 return {"CANCELLED"}
 
+        ground_plane = None
+        if self.use_ground_plane:
+            ground_plane = self.add_ground_plane(context)
+
         size = math.ceil(math.sqrt(faceCount))
         quadrant_size = 2 + self.pixels_between_verts
         size_pixels = size * quadrant_size
 
-        imageName = "LUTB_OVEREXPOSED_TARGET"
-        image = bpy.data.images.get(imageName)
-        if image and (image.size[0] != size_pixels or image.size[1] != size_pixels):
+        image = bpy.data.images.get(LUTB_HSR_ID)
+        if image and tuple(image.size) != (size_pixels, size_pixels):
             bpy.data.images.remove(image)
             image = None
         if not image:
-            image = bpy.data.images.new(imageName, size_pixels, size_pixels, alpha=False, float_buffer=False)
+            image = bpy.data.images.new(LUTB_HSR_ID, size_pixels, size_pixels)
 
-        uvlayer = bm.loops.layers.uv.new("LUTB_HSR")
+        bm.faces.ensure_lookup_table()
+        uv_layer = self.setup_uv_layer(context, bm, bm.faces, size, size_pixels)
+        bm.to_mesh(mesh)
+        mesh.uv_layers[uv_layer.name].active = True
 
-        pixelSize = 1 / size_pixels
+        self.bake_to_image(context, image, target_obj, ground_plane)
+
+        bm.loops.layers.uv.remove(bm.loops.layers.uv["LUTB_HSR"])
+
+        hidden_indices = self.get_hidden_faces(image, bm.faces, size, size_pixels, quadrant_size)
+
+        if self.autoremove:
+            hidden_faces = [bm.faces[index] for index in hidden_indices]
+            for face in reversed(hidden_faces):
+                bm.faces.remove(face)
+
+            bm.to_mesh(mesh)
+
+            bpy.ops.object.mode_set(mode="EDIT")
+            context.tool_settings.mesh_select_mode = (True, False, False)
+            bpy.ops.mesh.select_all(action="SELECT")
+            bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
+            bpy.ops.object.mode_set(mode="OBJECT")
+        else:
+            bpy.ops.object.mode_set(mode="EDIT")
+            context.tool_settings.mesh_select_mode = (False, False, True)
+            bpy.ops.mesh.select_all(action="DESELECT")
+            bpy.ops.object.mode_set(mode="OBJECT")
+
+            for index in hidden_indices:
+                mesh.polygons[index].select = True
+
+        bm.free()
+
+        if ground_plane:
+            bpy.data.objects.remove(ground_plane)
+
+        return {"FINISHED"}
+
+    def add_ground_plane(self, context):
+        old_active_obj = context.object
+
+        bpy.ops.mesh.primitive_cube_add(size=1, location=(0, 0, -50), scale=(1000, 1000, 100))
+        bpy.ops.object.transform_apply()
+        ground_plane = context.object
+
+        bpy.ops.object.select_all(action="DESELECT")
+        old_active_obj.select_set(True)
+        context.view_layer.objects.active = old_active_obj
+
+        if not (material := bpy.data.materials.get("LUTB_GROUND_PLANE")):
+            material = bpy.data.materials.new("LUTB_GROUND_PLANE")
+            material.use_nodes = True
+            nodes = material.node_tree.nodes
+            nodes.clear()
+            node_diffuse = nodes.new("ShaderNodeBsdfDiffuse")
+            node_diffuse.inputs["Color"].default_value = (0, 0, 0, 1)
+            node_output = nodes.new("ShaderNodeOutputMaterial")
+            material.node_tree.links.new(node_diffuse.outputs[0], node_output.inputs[0])
+        
+        ground_plane.data.materials.append(material)
+
+        return ground_plane
+
+    def setup_uv_layer(self, context, bm, faces, size, size_pixels):
+        uvlayer = bm.loops.layers.uv.new(LUTB_HSR_ID)
+
+        size_pixels_inv = 1 / size_pixels
         pbv_p_1 = self.pixels_between_verts + 1
         offsets = (
-            pixelSize * Vector((0 - 0.01 * pbv_p_1, 0 + 0.00 * pbv_p_1)),
-            pixelSize * Vector((1 + 1.00 * pbv_p_1, 0 + 0.00 * pbv_p_1)),
-            pixelSize * Vector((1 + 1.00 * pbv_p_1, 1 + 1.01 * pbv_p_1)),
-            pixelSize * Vector((0 - 0.01 * pbv_p_1, 1 + 1.01 * pbv_p_1)),
+            size_pixels_inv * Vector((0 - 0.01 * pbv_p_1, 0 + 0.00 * pbv_p_1)),
+            size_pixels_inv * Vector((1 + 1.00 * pbv_p_1, 0 + 0.00 * pbv_p_1)),
+            size_pixels_inv * Vector((1 + 1.00 * pbv_p_1, 1 + 1.01 * pbv_p_1)),
+            size_pixels_inv * Vector((0 - 0.01 * pbv_p_1, 1 + 1.01 * pbv_p_1)),
         )
         
-        bm.faces.ensure_lookup_table()
-        for i, face in enumerate(bm.faces):
-            target = Vector((i % size, i // size)) * quadrant_size / size_pixels
+        size_inv = 1 / size
+        for i, face in enumerate(faces):
+            target = Vector((i % size, i // size)) * size_inv
             for j, loop in enumerate(face.loops):
                 loop[uvlayer].uv = target + offsets[j]
 
-        bm.to_mesh(mesh)
+        return uvlayer
 
-        mesh.uv_layers["LUTB_HSR"].active = True
-
-        # baking
-
+    def bake_to_image(self, context, image, target_obj, ground_plane):
+        scene = context.scene
         scene_override = scene.copy()
 
         hidden_objects = []
@@ -146,13 +193,12 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         for i, material in enumerate(originalMaterials):
             target_obj.material_slots[i].material = material
 
-        bm.clear()
-        bm.from_mesh(mesh)
-
-        pixels = np.array(image.pixels)
-
+    def get_hidden_faces(self, image, faces, size, size_pixels, quadrant_size):
         size_sq = size ** 2
         size_pixels_sq = size_pixels ** 2
+
+        pixels = np.empty(size_pixels_sq * 4, dtype=np.float32)
+        image.pixels.foreach_get(pixels)
 
         sum_per_face = pixels.copy()
         sum_per_face = np.reshape(sum_per_face, (size_pixels_sq, 4))
@@ -165,48 +211,17 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         sum_per_face = np.sum(sum_per_face, axis=1)
         sum_per_face = np.reshape(sum_per_face, (size, size))
         sum_per_face = np.swapaxes(sum_per_face, 0, 1)
-        sum_per_face = np.reshape(sum_per_face, (1, size_sq))[0][:len(bm.faces)]
-        
+        sum_per_face = np.reshape(sum_per_face, (1, size_sq))[0][:len(faces)]
+
         pixels_per_quad = quadrant_size ** 2
         pixels_per_tri  = (pixels_per_quad + quadrant_size) / 2
+        pixels_per_face = [pixels_per_quad if len(face.verts) == 4 else pixels_per_tri for face in faces]
 
-        average_per_face = np.zeros(sum_per_face.shape)
-        for i, face in enumerate(bm.faces):
-            if len(face.verts) == 4:
-                average_per_face[i] = sum_per_face[i] / pixels_per_quad
-            else:
-                average_per_face[i] = sum_per_face[i] / pixels_per_tri
+        average_per_face = sum_per_face / pixels_per_face / 3
 
-        average_per_face = average_per_face / 3
+        indices = np.where(average_per_face < self.threshold)[0]
 
-        if self.autoremove:
-            for face, value in reversed(list(zip(bm.faces, average_per_face))):
-                if value < self.threshold:
-                    bm.faces.remove(face)
-
-        bm.loops.layers.uv.remove(bm.loops.layers.uv["LUTB_HSR"])
-        bm.to_mesh(mesh)
-        bm.free()
-
-        if self.autoremove:
-            bpy.ops.object.mode_set(mode="EDIT")
-            context.tool_settings.mesh_select_mode = (True, False, False)
-            bpy.ops.mesh.select_all(action="SELECT")
-            bpy.ops.mesh.delete_loose(use_verts=True, use_edges=True, use_faces=False)
-            bpy.ops.object.mode_set(mode="OBJECT")
-        else:
-            bpy.ops.object.mode_set(mode="EDIT")
-            context.tool_settings.mesh_select_mode = (False, False, True)
-            bpy.ops.mesh.select_all(action="DESELECT")
-            bpy.ops.object.mode_set(mode="OBJECT")
-
-            for polygon, value in zip(mesh.polygons, average_per_face):
-                polygon.select = value < self.threshold
-
-        if ground_plane:
-            bpy.data.objects.remove(ground_plane)
-
-        return {"FINISHED"}
+        return indices
 
 def getOverexposedMaterial(image):
     name = "LUTB_overexposed"
