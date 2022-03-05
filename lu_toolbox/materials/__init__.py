@@ -173,31 +173,17 @@ MATERIALS_GLOW["9027"] = MATERIALS_GLOW["329"]
 
 # Metallic
 MATERIALS_METALLIC = {
-    "131"   : (0.262251, 0.296138, 0.296138, 1.0),
-    "139"   : (0.174648, 0.066626, 0.029557, 1.0),
-    "148"   : (0.06301,  0.051269, 0.043735, 1.0),
-    "149"   : (0.006,    0.006,    0.006,    1.0),
-    "184"   : (0.238095, 0.00907,  0.00907,  1.0),
-    "186"   : (0.081104, 0.252379, 0.045668, 1.0),
-    "145"   : (0.104617, 0.177888, 0.278894, 1.0),
-    "309"   : (0.617207, 0.617207, 0.617207, 1.0),
-    "297"   : (0.401978, 0.212231, 0.027321, 1.0),
-    "310"   : (0.737911, 0.533276, 0.181164, 1.0),
+    ("131", "150", "179", "298", "315")  : (0.262251, 0.296138, 0.296138, 1.0),
+    ("139", "187", "300")                : (0.174648, 0.066626, 0.029557, 1.0),
+    "148"                                : (0.06301,  0.051269, 0.043735, 1.0),
+    "149"                                : (0.006,    0.006,    0.006,    1.0),
+    "184"                                : (0.238095, 0.00907,  0.00907,  1.0),
+    ("186", "200")                       : (0.081104, 0.252379, 0.045668, 1.0),
+    ("145", "185")                       : (0.104617, 0.177888, 0.278894, 1.0),
+    ("309", "183")                       : (0.617207, 0.617207, 0.617207, 1.0),
+    ("297", "147", "189")                : (0.401978, 0.212231, 0.027321, 1.0),
+    ("310", "127", )                     : (0.737911, 0.533276, 0.181164, 1.0),
 }
-
-# Duplicate Metallic
-MATERIALS_METALLIC["127"] = MATERIALS_METALLIC["310"]
-MATERIALS_METALLIC["147"] = MATERIALS_METALLIC["297"]
-MATERIALS_METALLIC["150"] = MATERIALS_METALLIC["131"]
-MATERIALS_METALLIC["179"] = MATERIALS_METALLIC["131"]
-MATERIALS_METALLIC["183"] = MATERIALS_METALLIC["309"]
-MATERIALS_METALLIC["185"] = MATERIALS_METALLIC["145"]
-MATERIALS_METALLIC["187"] = MATERIALS_METALLIC["139"]
-MATERIALS_METALLIC["189"] = MATERIALS_METALLIC["297"]
-MATERIALS_METALLIC["200"] = MATERIALS_METALLIC["186"]
-MATERIALS_METALLIC["298"] = MATERIALS_METALLIC["131"]
-MATERIALS_METALLIC["300"] = MATERIALS_METALLIC["139"]
-MATERIALS_METALLIC["315"] = MATERIALS_METALLIC["131"]
 
 CUSTOM_VARIATION = {
     "1"     : 1.3,
@@ -218,6 +204,13 @@ CUSTOM_VARIATION = {
     "323"   : 1.4,
     "326"   : 1.75,
 }
+
+for dictionary in (MATERIALS_OPAQUE, MATERIALS_TRANSPARENT, MATERIALS_GLOW, MATERIALS_METALLIC, CUSTOM_VARIATION):
+    for keys, value in list(dictionary.items()):
+        if not type(keys) == str:
+            dictionary.pop(keys)
+            for key in keys:
+                dictionary[key] = value
 
 def get_lutb_bake_mat(parent_op=None):
     if not LUTB_BAKE_MAT in bpy.data.materials:
