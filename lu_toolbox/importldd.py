@@ -993,10 +993,7 @@ class Converter:
                         mesh.from_pydata(verts, edges, faces)
                         for f in mesh.polygons:
                             f.use_smooth = True
-                        vindex = 0
-                        for vertex in mesh.vertices:
-                            vertex.normal = normals[vindex]
-                            vindex += 1
+
                         geometriecache["geo{0}".format(written_geo)] = mesh
 
                     else:
