@@ -73,9 +73,9 @@ class ImportLDDOps(Operator, ImportHelper):
     )
 
     clearCollections: BoolProperty(
-        name="Clear Colllection",
-        description="Clear Colllection before import",
-        default=False,
+        name="Overwrite Scene",
+        description="Delete all objects and collections from Blender scene before importing.",
+        default=True,
     )
 
     def execute(self, context):
