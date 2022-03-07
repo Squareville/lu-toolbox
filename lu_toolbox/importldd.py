@@ -72,6 +72,12 @@ class ImportLDDOps(Operator, ImportHelper):
         default=True,
     )
 
+    clearCollections: BoolProperty(
+        name="Clear Colllection",
+        description="Clear Colllection before import",
+        default=False,
+    )
+
     def execute(self, context):
         return convertldd_data(
             self,
@@ -79,7 +85,8 @@ class ImportLDDOps(Operator, ImportHelper):
             self.filepath,
             self.renderLOD0,
             self.renderLOD1,
-            self.renderLOD2
+            self.renderLOD2,
+            self.clearCollections
         )
 
 def register():
@@ -97,7 +104,7 @@ def unregister():
 def menu_func_import(self, context):
     self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Exchange Format (.lxf/.lxfml)")
 
-def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2):
+def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2, clearCollections):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
@@ -121,8 +128,16 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2)
         end = time.process_time()
         self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
-    # Try to use LU's LODS
     try:
+        if clearCollections:
+            bpy.ops.object.select_all(action='SELECT')
+            bpy.ops.object.delete(use_global=False)
+
+            bpy.ops.outliner.orphans_purge()
+
+            for c in context.scene.collection.children:
+                context.scene.collection.children.unlink(c)
+
         converter.LoadScene(filename=filepath)
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
