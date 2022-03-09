@@ -281,16 +281,20 @@ class LUTB_OT_process_model(bpy.types.Operator):
             if not (vc_col := mesh.vertex_colors.get("Col")):
                 vc_col = mesh.vertex_colors.new(name="Col")
 
-            materials = mesh.materials
-            n_materials = len(materials)
-            if n_materials < 2:
-                color = lin2srgb(materials[0].diffuse_color) if materials else (0.8, 0.8, 0.8, 1.0)
+            if len(mesh.materials) < 2:
+                if mesh.materials:
+                    color = lin2srgb(mesh.materials[0].diffuse_color)
+                else:
+                    color = (0.8, 0.8, 0.8, 1.0)
+
                 if is_transparent:
                     color[3] = scene.lutb_transparent_opacity / 100.0
+
                 color_data = np.tile(color, n_loops)
+
             else:
-                colors = np.zeros((n_materials, 4))
-                for i, material in enumerate(materials):
+                colors = np.empty((len(mesh.materials), 4))
+                for i, material in enumerate(mesh.materials):
                     colors[i] = lin2srgb(material.diffuse_color)
 
                 if is_transparent:
@@ -316,8 +320,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
                 mat_names = [mat.name.rsplit(".", 1)[0] for mat in mesh.materials]
                 if set(mat_names) & set(MATERIALS_GLOW):
-                    colors = np.zeros((n_materials, 4))
-                    for i, (name, material) in enumerate(zip(mat_names, materials)):
+                    colors = np.empty((len(mesh.materials), 4))
+                    for i, (name, material) in enumerate(zip(mat_names, mesh.materials)):
                         color = MATERIALS_GLOW.get(name)
                         colors[i] = lin2srgb(color) if color else (0.0, 0.0, 0.0, 1.0)
 

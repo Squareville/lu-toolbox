@@ -168,8 +168,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             if vc_lit and (vc_alpha := mesh.vertex_colors.get("Alpha")):
                 n_loops = len(mesh.loops)
 
-                lit_data = np.zeros(n_loops * 4)
-                alpha_data = np.zeros(n_loops * 4)
+                lit_data = np.empty(n_loops * 4)
+                alpha_data = np.empty(n_loops * 4)
 
                 vc_lit.data.foreach_get("color", lit_data)
                 vc_alpha.data.foreach_get("color", alpha_data)

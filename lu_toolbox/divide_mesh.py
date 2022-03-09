@@ -9,7 +9,7 @@ def divide_mesh(context, mesh_obj, max_verts=65536, min_div_rate=0.1):
         if n_verts < max_verts:
             return []
 
-        buffer_co = np.zeros(n_verts * 3)
+        buffer_co = np.empty(n_verts * 3)
         mesh.vertices.foreach_get("co", buffer_co)
         vecs = buffer_co.reshape((n_verts, 3))
         mean = np.sum(vecs, axis=0) / n_verts
