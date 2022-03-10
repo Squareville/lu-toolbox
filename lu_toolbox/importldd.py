@@ -1006,6 +1006,7 @@ class Converter:
 
                         edges = []
                         mesh.from_pydata(verts, edges, faces)
+                        mesh.normals_split_custom_set_from_vertices(normals)
                         for f in mesh.polygons:
                             f.use_smooth = True
 
