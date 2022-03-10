@@ -202,18 +202,16 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         mesh.vertex_colors.remove(vc)
         mesh.vertex_colors.active_index = old_active_index
 
-        loop_values = vc_data.reshape(len(mesh.loops), 4)[:,:3].sum(1) / 3
+        loop_values = (vc_data.reshape(len(mesh.loops), 4)[:,:3].sum(1) / 3) > self.threshold
         loop_starts = np.empty(len(mesh.polygons), dtype=int)
         mesh.polygons.foreach_get("loop_start", loop_starts)
         loop_totals = np.empty(len(mesh.polygons), dtype=int)
         mesh.polygons.foreach_get("loop_total", loop_totals)
 
-        face_loop_values = np.zeros((len(mesh.polygons), 4))
+        face_loop_values = np.zeros((len(mesh.polygons), 4), dtype=bool)
         for i, (loop_start, loop_total) in enumerate(zip(loop_starts, loop_totals)):
             face_loop_values[i,:loop_total] = loop_values[loop_start:loop_start + loop_total]
-        face_values = face_loop_values.sum(axis=1) / loop_totals
-
-        visible = face_values > 0.9999
+        visible = face_loop_values.max(axis=1)
 
         end = timer()
         n = visible.sum()
