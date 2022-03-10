@@ -89,6 +89,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         render.bake.use_pass_glossy = False
         render.bake.use_pass_transmission = True
         render.bake.use_pass_emit = True
+        render.bake.target = "VERTEX_COLORS"
 
         cycles.use_fast_gi = True
         cycles.ao_bounces_render = scene.lutb_bake_fast_gi_bounces
@@ -153,7 +154,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
             context_override = context.copy()
             context_override["scene"] = scene_override
-            bpy.ops.object.bake(context_override, target="VERTEX_COLORS")
+            bpy.ops.object.bake(context_override)
 
             mesh.materials[0] = old_material
 

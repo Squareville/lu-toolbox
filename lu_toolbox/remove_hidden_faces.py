@@ -4,6 +4,8 @@ from bpy.props import IntProperty, FloatProperty, BoolProperty
 import math
 import numpy as np
 
+from timeit import default_timer as timer
+
 LUTB_HSR_ID = "LUTB_HSR"
 
 class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
@@ -43,6 +45,8 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         )
 
     def execute(self, context):
+        start = timer()
+
         scene = context.scene
         target_obj = context.object
         mesh = target_obj.data
@@ -70,7 +74,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.select_all(action="DESELECT")
             bpy.ops.object.mode_set(mode="OBJECT")
-            mesh.polygons.foreach_set("select", visible)
+            mesh.polygons.foreach_set("select", ~visible)
         else:
             bpy.ops.object.mode_set(mode="EDIT")
             bpy.ops.mesh.select_all(action="SELECT")
@@ -95,7 +99,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="OBJECT")
 
         select = np.zeros(len(mesh.polygons), dtype=bool)
-        select[hidden_indices] = True
+        select[indices[hidden_indices]] = True
         mesh.polygons.foreach_set("select", select)
 
         if self.autoremove:
@@ -110,6 +114,15 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         if ground_plane:
             bpy.data.objects.remove(ground_plane)
+
+        end = timer()
+        n = len(hidden_indices)
+        total = len(select)
+        operation = "removed" if self.autoremove else "found"
+        print(
+            f"hsr info: {operation} {n}/{total} hidden faces ({n / total:.2%}) "\
+            f"in {end - start:.2f}s"
+        )
 
         return {"FINISHED"}
 
@@ -135,14 +148,83 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return obj
 
-    def compute_vc_pre_pass(self, context, scene_override):
+    def setup_scene_override(self, context):
+        scene_override = context.scene.copy()
+
+        scene_override.world = get_overexposed_world()
         cycles = scene_override.cycles
+        cycles.bake_type = "DIFFUSE"
+        cycles.use_denoising = False
+        cycles.use_fast_gi = False
+        cycles.sample_clamp_direct = 0.0
+        cycles.sample_clamp_indirect = 0.0
+
+        bake_settings = scene_override.render.bake
+        bake_settings.use_pass_direct = True
+        bake_settings.use_pass_indirect = True
+        bake_settings.use_pass_diffuse = True
+        bake_settings.margin = 0
+        bake_settings.use_clear = True
+
+        return scene_override
+
+    def compute_vc_pre_pass(self, context, scene):
+        start = timer()
+
+        obj = context.object
+        mesh = obj.data
+
+        material = bpy.data.materials.new(LUTB_HSR_ID)
+        original_materials = []
+        for i, material_slot in enumerate(obj.material_slots):
+            original_materials.append(material_slot.material)
+            obj.material_slots[i].material = material
+
+        vc = mesh.vertex_colors.new(name=LUTB_HSR_ID)
+        old_active_index = mesh.vertex_colors.active_index
+        mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index(vc.name)
+
+        cycles = scene.cycles
         cycles.samples = self.vc_pre_pass_samples
         cycles.max_bounces = 12
         cycles.diffuse_bounces = 12
-        scene_override.render.bake.target = "VERTEX_COLORS"
+        scene.render.bake.target = "VERTEX_COLORS"
 
-        return len(context.object.data.polygons) * [True]
+        context_override = context.copy()
+        context_override["scene"] = scene
+        bpy.ops.object.bake(context_override)
+
+        for i, material in enumerate(original_materials):
+            obj.material_slots[i].material = material
+
+        vc_data = np.empty(len(mesh.loops) * 4)
+        vc.data.foreach_get("color", vc_data)
+
+        mesh.vertex_colors.remove(vc)
+        mesh.vertex_colors.active_index = old_active_index
+
+        loop_values = vc_data.reshape(len(mesh.loops), 4)[:,:3].sum(1) / 3
+        loop_starts = np.empty(len(mesh.polygons), dtype=int)
+        mesh.polygons.foreach_get("loop_start", loop_starts)
+        loop_totals = np.empty(len(mesh.polygons), dtype=int)
+        mesh.polygons.foreach_get("loop_total", loop_totals)
+
+        face_loop_values = np.zeros((len(mesh.polygons), 4))
+        for i, (loop_start, loop_total) in enumerate(zip(loop_starts, loop_totals)):
+            face_loop_values[i,:loop_total] = loop_values[loop_start:loop_start + loop_total]
+        face_values = face_loop_values.sum(axis=1) / loop_totals
+
+        visible = face_values > 0.9999
+
+        end = timer()
+        n = visible.sum()
+        total = len(mesh.polygons)
+        print(
+            f"hsr info: vc pre-pass sorted out {n}/{total} faces ({n / total:.2%}) "\
+            f"in {end - start:.2f}s"
+        )
+
+        return visible
 
     def setup_uv_layer(self, context, mesh, faces, size, size_pixels):
         uv_layer = mesh.uv_layers.new(name=LUTB_HSR_ID)
@@ -165,23 +247,6 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return uv_layer
 
-    def setup_scene_override(self, context):
-        scene_override = context.scene.copy()
-
-        scene_override.world = get_overexposed_world()
-        cycles = scene_override.cycles
-        cycles.use_denoising = False
-        cycles.use_fast_gi = False
-        cycles.sample_clamp_direct = 0.0
-        cycles.sample_clamp_indirect = 0.0
-
-        bake_settings = scene_override.render.bake
-        bake_settings.use_pass_direct = True
-        bake_settings.use_pass_indirect = True
-        bake_settings.use_pass_diffuse = True
-
-        return scene_override
-
     def bake_to_image(self, context, scene, faces):
         obj = context.object
         mesh = context.object.data
@@ -199,10 +264,11 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         if not image:
             image = bpy.data.images.new(LUTB_HSR_ID, size_pixels, size_pixels)
 
+        material = get_overexposed_material(image)
         original_materials = []
         for i, material_slot in enumerate(obj.material_slots):
             original_materials.append(material_slot.material)
-            obj.material_slots[i].material = get_overexposed_material(image)
+            obj.material_slots[i].material = material
 
         cycles = scene.cycles
         cycles.samples = self.samples
@@ -212,7 +278,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         context_override = context.copy()
         context_override["scene"] = scene
-        bpy.ops.object.bake(context_override, type="DIFFUSE", margin=0, use_clear=True)
+        bpy.ops.object.bake(context_override)
 
         for i, material in enumerate(original_materials):
             obj.material_slots[i].material = material
@@ -256,11 +322,13 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         return indices
 
 def get_overexposed_material(image):
-    name = "LUTB_overexposed"
+    material = bpy.data.materials.get(LUTB_HSR_ID)
+    if material and (not material.use_nodes or not "LUTB_TARGET" in material.node_tree.nodes):
+        bpy.data.materials.remove(material)
+        material = None
 
-    material = bpy.data.materials.get(name)
     if not material:
-        material = bpy.data.materials.new(name)
+        material = bpy.data.materials.new(LUTB_HSR_ID)
         material.use_nodes = True
         nodes = material.node_tree.nodes
 
@@ -274,11 +342,9 @@ def get_overexposed_material(image):
     return material
 
 def get_overexposed_world():
-    name = "LUTB_overexposed"
-
-    world = bpy.data.worlds.get(name)
+    world = bpy.data.worlds.get(LUTB_HSR_ID)
     if not world:
-        world = bpy.data.worlds.new(name)
+        world = bpy.data.worlds.new(LUTB_HSR_ID)
         world.use_nodes = True
         nodes = world.node_tree.nodes
 

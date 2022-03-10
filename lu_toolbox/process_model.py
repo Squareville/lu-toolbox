@@ -372,6 +372,8 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
             bpy.ops.lutb.remove_hidden_faces(
                 autoremove=scene.lutb_hsr_autoremove,
+                vc_pre_pass=scene.lutb_hsr_vc_pre_pass,
+                vc_pre_pass_samples=scene.lutb_hsr_vc_pre_pass_samples,
                 tris_to_quads=scene.lutb_hsr_tris_to_quads,
                 pixels_between_verts=scene.lutb_hsr_pixels_between_verts,
                 samples=scene.lutb_hsr_samples,
