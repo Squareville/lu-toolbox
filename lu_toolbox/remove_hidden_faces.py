@@ -87,11 +87,10 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         select = np.empty(len(mesh.polygons), dtype=bool)
         mesh.polygons.foreach_get("select", select)
-        indices = np.where(select)[0]
-        faces = [mesh.polygons[index] for index in indices]
+        face_indices = np.where(select)[0]
 
-        image = self.bake_to_image(context, scene_override, faces)
-        hidden_indices = self.get_hidden_from_image(image, faces)
+        image = self.bake_to_image(context, scene_override, mesh, face_indices)
+        hidden_indices = self.get_hidden_from_image(image, mesh, face_indices)
 
         bpy.ops.object.mode_set(mode="EDIT")
         context.tool_settings.mesh_select_mode = (False, False, True)
@@ -99,7 +98,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         bpy.ops.object.mode_set(mode="OBJECT")
 
         select = np.zeros(len(mesh.polygons), dtype=bool)
-        select[indices[hidden_indices]] = True
+        select[hidden_indices] = True
         mesh.polygons.foreach_set("select", select)
 
         if self.autoremove:
@@ -226,7 +225,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return visible
 
-    def setup_uv_layer(self, context, mesh, faces, size, size_pixels):
+    def setup_uv_layer(self, context, mesh, face_indices, size, size_pixels):
         uv_layer = mesh.uv_layers.new(name=LUTB_HSR_ID)
         uv_layer.active = True
 
@@ -240,22 +239,29 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         size_inv = 1 / size
         uv_data = np.zeros((len(mesh.loops), 2))
-        for i, face in enumerate(faces):
+        loop_starts = np.empty(len(mesh.polygons), dtype=int)
+        mesh.polygons.foreach_get("loop_start", loop_starts)
+        loop_starts = loop_starts[face_indices]
+        loop_totals = np.empty(len(mesh.polygons), dtype=int)
+        mesh.polygons.foreach_get("loop_total", loop_totals)
+        loop_totals = loop_totals[face_indices]
+
+        for i, (loop_start, loop_total) in enumerate(zip(loop_starts, loop_totals)):
             target = np.array((i % size, i // size)) * size_inv
-            uv_data[face.loop_indices] = target + offsets[:face.loop_total]
+            uv_data[loop_start:loop_start+loop_total] = target + offsets[:loop_total]
         uv_layer.data.foreach_set("uv", uv_data.flatten())
 
         return uv_layer
 
-    def bake_to_image(self, context, scene, faces):
+    def bake_to_image(self, context, scene, mesh, face_indices):
         obj = context.object
         mesh = context.object.data
 
-        size = math.ceil(math.sqrt(len(faces)))
+        size = math.ceil(math.sqrt(len(face_indices)))
         quadrant_size = 2 + self.pixels_between_verts
         size_pixels = size * quadrant_size
 
-        uv_layer = self.setup_uv_layer(context, mesh, faces, size, size_pixels)
+        uv_layer = self.setup_uv_layer(context, mesh, face_indices, size, size_pixels)
 
         image = bpy.data.images.get(LUTB_HSR_ID)
         if image and tuple(image.size) != (size_pixels, size_pixels):
@@ -287,8 +293,10 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return image
 
-    def get_hidden_from_image(self, image, faces):
-        size = math.ceil(math.sqrt(len(faces)))
+    def get_hidden_from_image(self, image, mesh, face_indices):
+        face_count = len(face_indices)
+
+        size = math.ceil(math.sqrt(face_count))
         quadrant_size = 2 + self.pixels_between_verts
         size_pixels = size * quadrant_size
         size_sq = size ** 2
@@ -308,16 +316,18 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         sum_per_face = np.sum(sum_per_face, axis=1)
         sum_per_face = np.reshape(sum_per_face, (size, size))
         sum_per_face = np.swapaxes(sum_per_face, 0, 1)
-        sum_per_face = np.reshape(sum_per_face, (1, size_sq))[0][:len(faces)]
+        sum_per_face = np.reshape(sum_per_face, (1, size_sq))[0][:face_count]
 
         pixels_per_quad = quadrant_size ** 2
         pixels_per_tri  = (pixels_per_quad + quadrant_size) / 2
-        loops_per_face = np.array([face.loop_total for face in faces])
+        loop_totals = np.empty(len(mesh.polygons), dtype=int)
+        mesh.polygons.foreach_get("loop_total", loop_totals)
+        loops_per_face = loop_totals[face_indices]
         pixels_per_face = np.array((pixels_per_tri, pixels_per_quad))[loops_per_face - 3]
 
         average_per_face = sum_per_face / pixels_per_face / 3
 
-        indices = np.where(average_per_face < self.threshold)[0]
+        indices = face_indices[np.where(average_per_face < self.threshold)[0]]
 
         return indices
 
