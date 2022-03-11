@@ -72,9 +72,15 @@ class ImportLDDOps(Operator, ImportHelper):
         default=True,
     )
 
-    clearCollections: BoolProperty(
+    overwriteScene: BoolProperty(
         name="Overwrite Scene",
         description="Delete all objects and collections from Blender scene before importing.",
+        default=True,
+    )
+
+    useNormals: BoolProperty(
+        name="Use Normals",
+        description="Use normals when importing geometry",
         default=True,
     )
 
@@ -86,7 +92,8 @@ class ImportLDDOps(Operator, ImportHelper):
             self.importLOD0,
             self.importLOD1,
             self.importLOD2,
-            self.clearCollections
+            self.overwriteScene,
+            self.useNormals
         )
 
 def register():
@@ -104,7 +111,7 @@ def unregister():
 def menu_func_import(self, context):
     self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Exchange Format (.lxf/.lxfml)")
 
-def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2, clearCollections):
+def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2, overwriteScene, useNormals):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
@@ -129,7 +136,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
     try:
-        if clearCollections:
+        if overwriteScene:
             bpy.ops.object.select_all(action='SELECT')
             bpy.ops.object.delete(use_global=False)
 
@@ -144,17 +151,17 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
 
         if importLOD0:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='0', parent_collection=col)
+            converter.Export(filename=filepath, lod='0', parent_collection=col, useNormals=useNormals)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
         if importLOD1:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='1', parent_collection=col)
+            converter.Export(filename=filepath, lod='1', parent_collection=col, useNormals=useNormals)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
         if importLOD2:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='2', parent_collection=col)
+            converter.Export(filename=filepath, lod='2', parent_collection=col, useNormals=useNormals)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
     except Exception as e:
@@ -870,7 +877,7 @@ class Converter:
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self, filename, lod=None, parent_collection=None):
+    def Export(self, filename, lod=None, parent_collection=None, useNormals=True):
         invert = Matrix3D()
 
         indexOffset = 1
@@ -1010,9 +1017,10 @@ class Converter:
                         for f in mesh.polygons:
                             f.use_smooth = True
 
-                        mesh.calc_normals_split()
-                        mesh.normals_split_custom_set_from_vertices(normals)
-                        mesh.use_auto_smooth = True
+                        if useNormals:
+                            mesh.calc_normals_split()
+                            mesh.normals_split_custom_set_from_vertices(normals)
+                            mesh.use_auto_smooth = True
 
                         geometriecache["geo{0}".format(written_geo)] = mesh
 
