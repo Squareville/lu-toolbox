@@ -40,9 +40,9 @@ This importer is derived from [sttng's ImportLDD Add-on](https://github.com/sttn
    * Support for defining a path to any Brick DB via Add-on Preferences
    * Direct support for using LU's brick db without needing to extract it manually
      * You can use the `client/res/` folder directly as a Brick DB source
-     * the `brickdb.zip` will automatically be unsipped for you if it's not already
+     * the `brickdb.zip` will automatically be unzipped for you if it's not already
  * Dropped support for using LDD's `db.lif` directly since it doesn't provide LODs
- * Consolidated color support for LU's color pallet:
+ * Consolidated color support for LU's color palette:
    * Colors outside of LU's supported pallet will be coerced to the closest color
    * Please report any instances of missing colors so that they can be added
  * Missing data handling:
