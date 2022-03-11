@@ -30,13 +30,13 @@ from bpy.types import Operator, AddonPreferences
 
 class ImportLDDPreferences(AddonPreferences):
     bl_idname = __package__
-    lufilepath: StringProperty(
-        name="res folder",
+    brickdbpath: StringProperty(
+        name="Brick DB",
         subtype='FILE_PATH')
 
     def draw(self, context):
-        self.layout.label(text="Path to LU res Folder")
-        self.layout.prop(self, "lufilepath")
+        self.layout.label(text="Path to Brick DB (or luclient/res/)")
+        self.layout.prop(self, "brickdbpath")
 
 
 class ImportLDDOps(Operator, ImportHelper):
@@ -54,21 +54,21 @@ class ImportLDDOps(Operator, ImportHelper):
         maxlen=255,  # Max internal buffer length, longer would be clamped.
     )
 
-    renderLOD0: BoolProperty(
+    importLOD0: BoolProperty(
         name="LOD0",
-        description="Render LOD0",
+        description="Import LOD0",
         default=True,
     )
 
-    renderLOD1: BoolProperty(
+    importLOD1: BoolProperty(
         name="LOD1",
-        description="Render LOD1",
+        description="Import LOD1",
         default=True,
     )
 
-    renderLOD2: BoolProperty(
+    importLOD2: BoolProperty(
         name="LOD2",
-        description="Render LOD2",
+        description="Import LOD2",
         default=True,
     )
 
@@ -83,9 +83,9 @@ class ImportLDDOps(Operator, ImportHelper):
             self,
             context,
             self.filepath,
-            self.renderLOD0,
-            self.renderLOD1,
-            self.renderLOD2,
+            self.importLOD0,
+            self.importLOD1,
+            self.importLOD2,
             self.clearCollections
         )
 
@@ -104,16 +104,16 @@ def unregister():
 def menu_func_import(self, context):
     self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Exchange Format (.lxf/.lxfml)")
 
-def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2, clearCollections):
+def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2, clearCollections):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
-    lufilepath = addon_prefs.lufilepath
+    brickdbpath = addon_prefs.brickdbpath
 
     primaryBrickDBPath = None
 
-    if lufilepath:
-        primaryBrickDBPath = lufilepath
+    if brickdbpath:
+        primaryBrickDBPath = brickdbpath
     else:
         self.report({'ERROR'}, 'ERROR: Please define a Brick DB Path in the Addon Preferences')
         return {'FINISHED'}
@@ -142,17 +142,17 @@ def convertldd_data(self, context, filepath, renderLOD0, renderLOD1, renderLOD2,
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
 
-        if renderLOD0:
+        if importLOD0:
             start = time.process_time()
             converter.Export(filename=filepath, lod='0', parent_collection=col)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
-        if renderLOD1:
+        if importLOD1:
             start = time.process_time()
             converter.Export(filename=filepath, lod='1', parent_collection=col)
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
-        if renderLOD2:
+        if importLOD2:
             start = time.process_time()
             converter.Export(filename=filepath, lod='2', parent_collection=col)
             end = time.process_time()
