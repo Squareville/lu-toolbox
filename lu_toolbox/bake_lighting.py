@@ -4,7 +4,7 @@ import numpy as np
 from timeit import default_timer as timer
 
 from .process_model import IS_TRANSPARENT
-from .materials import get_lutb_ao_only_mat
+from .materials import get_lutb_force_white_mat
 
 WHITE_AMBIENT = "LUTB_WHITE_AMBIENT"
 
@@ -27,11 +27,17 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
 
         layout.prop(scene, "lutb_bake_samples")
         layout.prop(scene, "lutb_bake_fast_gi_bounces")
+        layout.prop(scene, "lutb_bake_glow_strength")
         layout.prop(scene, "lutb_bake_use_gpu")
         layout.prop(scene, "lutb_bake_use_white_ambient")
         layout.prop(scene, "lutb_bake_smooth_lit")
+        layout.prop(scene, "lutb_bake_ao_only")
         col = layout.column()
-        col.prop(scene, "lutb_bake_ao_only")
+        col.prop(scene, "lutb_bake_glow_multiplier")
+        col.prop(scene, "lutb_bake_ao_samples")
+        col.active = scene.lutb_bake_ao_only
+        col = layout.column()
+        col.prop(scene, "lutb_bake_force_to_white")
         col.active = not scene.lutb_bake_use_mat_override
 
 class LUTB_PT_mat_override(bpy.types.Panel):
@@ -70,12 +76,6 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         scene = context.scene
         scene_override = scene.copy()
 
-        if scene.lutb_bake_use_white_ambient:
-            if not (world := bpy.data.worlds.get(WHITE_AMBIENT)):
-                world = bpy.data.worlds.new(WHITE_AMBIENT)
-                world.color = (1.0, 1.0, 1.0)
-            scene_override.world = world
-
         render = scene_override.render
         cycles = scene_override.cycles
         render.engine = "CYCLES"
@@ -95,10 +95,25 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         cycles.ao_bounces_render = scene.lutb_bake_fast_gi_bounces
 
         cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
-
         cycles.samples = scene.lutb_bake_samples
+
+        if scene.lutb_bake_use_white_ambient:
+            if not (world := bpy.data.worlds.get(WHITE_AMBIENT)):
+                world = bpy.data.worlds.new(WHITE_AMBIENT)
+                world.color = (1.0, 1.0, 1.0)
+            scene_override.world = world
+
+        emission_strength = scene.lutb_bake_glow_strength
+        ao_only_world_override = None
         if scene.lutb_bake_ao_only:
             cycles.max_bounces = 0
+            cycles.fast_gi_method = "ADD"
+            ao_only_world_override = scene_override.world.copy()
+            scene_override.world = ao_only_world_override
+            ao_only_world_override.light_settings.ao_factor = 1.0
+            ao_only_world_override.light_settings.distance = 1.0
+            emission_strength *= scene.lutb_bake_glow_multiplier
+            cycles.samples = scene.lutb_bake_ao_samples
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
@@ -144,13 +159,16 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             context.view_layer.objects.active = obj
 
             old_material = mesh.materials[0]
-
-            if scene.lutb_bake_ao_only and not scene.lutb_bake_use_mat_override:
-                if material := get_lutb_ao_only_mat(self):
-                    mesh.materials[0] = material
-
             if scene.lutb_bake_use_mat_override:
                 mesh.materials[0] = scene.lutb_bake_mat_override
+            elif scene.lutb_bake_force_to_white:
+                if material := get_lutb_force_white_mat(self):
+                    mesh.materials[0] = material
+
+            if mesh.materials[0].use_nodes:
+                for node in mesh.materials[0].node_tree.nodes:
+                    if node.type == "BSDF_PRINCIPLED":
+                        node.inputs['Emission Strength'].default_value = emission_strength
 
             context_override = context.copy()
             context_override["scene"] = scene_override
@@ -183,6 +201,9 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
         bpy.data.scenes.remove(scene_override)
 
+        if ao_only_world_override:
+            bpy.data.worlds.remove(ao_only_world_override)
+
         for obj in selected:
             obj.select_set(True)
 
@@ -196,7 +217,6 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 
         return {"FINISHED"}
 
-
 def register():
     bpy.utils.register_class(LUTB_OT_bake_lighting)
     bpy.utils.register_class(LUTB_PT_bake_lighting)
@@ -207,10 +227,14 @@ def register():
     bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256, min=1, description=""\
         "Number of samples to render for each vertex")
     bpy.types.Scene.lutb_bake_fast_gi_bounces = IntProperty(name="Fast GI Bounces", default=3, min=0)
+    bpy.types.Scene.lutb_bake_glow_strength = FloatProperty(name="Glow Strength Global", default=3.0, min=0, soft_min=0.5, soft_max=5.0)
     bpy.types.Scene.lutb_bake_use_white_ambient = BoolProperty(name="White Ambient", default=True, description=""\
         "Sets ambient light to pure white while baking")
-    bpy.types.Scene.lutb_bake_ao_only = BoolProperty(name="AO Only", default=False)
+    bpy.types.Scene.lutb_bake_ao_only = BoolProperty(name="AO Only", default=True)
+    bpy.types.Scene.lutb_bake_glow_multiplier = FloatProperty(name="Glow Multiplier Global", default=2.0, min=0, soft_min=0.5, soft_max=5.0)
+    bpy.types.Scene.lutb_bake_ao_samples = IntProperty(name="AO Samples", default=64, min=1)
     bpy.types.Scene.lutb_bake_use_mat_override = BoolProperty(name="Material Override")
+    bpy.types.Scene.lutb_bake_force_to_white = BoolProperty(name="Force to White")
     bpy.types.Scene.lutb_bake_mat_override = PointerProperty(name="Override Material", type=bpy.types.Material)
 
 def unregister():
@@ -218,8 +242,12 @@ def unregister():
     del bpy.types.Scene.lutb_bake_smooth_lit
     del bpy.types.Scene.lutb_bake_samples
     del bpy.types.Scene.lutb_bake_fast_gi_bounces
+    del bpy.types.Scene.lutb_bake_glow_strength
     del bpy.types.Scene.lutb_bake_use_white_ambient
     del bpy.types.Scene.lutb_bake_ao_only
+    del bpy.types.Scene.lutb_bake_force_to_white
+    del bpy.types.Scene.lutb_bake_glow_multiplier
+    del bpy.types.Scene.lutb_bake_ao_samples
     del bpy.types.Scene.lutb_bake_use_mat_override
     del bpy.types.Scene.lutb_bake_mat_override
 
