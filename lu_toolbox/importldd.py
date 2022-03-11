@@ -1006,9 +1006,13 @@ class Converter:
 
                         edges = []
                         mesh.from_pydata(verts, edges, faces)
-                        mesh.normals_split_custom_set_from_vertices(normals)
+
                         for f in mesh.polygons:
                             f.use_smooth = True
+
+                        mesh.calc_normals_split()
+                        mesh.normals_split_custom_set_from_vertices(normals)
+                        mesh.use_auto_smooth = True
 
                         geometriecache["geo{0}".format(written_geo)] = mesh
 
