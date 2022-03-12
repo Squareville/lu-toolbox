@@ -59,7 +59,7 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         ground_plane = None
         if self.use_ground_plane:
-            ground_plane = self.add_ground_plane()
+            ground_plane = self.add_ground_plane(context)
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
@@ -126,12 +126,13 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         return {"FINISHED"}
 
-    def add_ground_plane(self):
+    def add_ground_plane(self, context):
         bm = bmesh.new()
         matrix = Matrix.Diagonal((1000, 1000, 100, 1)) @ Matrix.Translation((0, 0, -0.5))
         bmesh.ops.create_cube(bm, size=1.0, matrix=matrix)
         mesh = bpy.data.meshes.new(LUTB_HSR_ID)
         obj = bpy.data.objects.new(LUTB_HSR_ID, mesh)
+        context.scene.collection.objects.link(obj)
         bm.to_mesh(mesh)
 
         if not (material := bpy.data.materials.get(LUTB_HSR_ID + "_GP")):
