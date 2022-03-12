@@ -29,7 +29,9 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
         layout.prop(scene, "lutb_bake_fast_gi_bounces")
         layout.prop(scene, "lutb_bake_glow_strength")
         layout.prop(scene, "lutb_bake_use_gpu")
-        layout.prop(scene, "lutb_bake_use_white_ambient")
+        col = layout.column()
+        col.prop(scene, "lutb_bake_use_white_ambient")
+        col.active = not scene.lutb_bake_ao_only
         layout.prop(scene, "lutb_bake_smooth_lit")
         layout.prop(scene, "lutb_bake_ao_only")
         col = layout.column()
@@ -104,16 +106,20 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             scene_override.world = world
 
         emission_strength = scene.lutb_bake_glow_strength
+
         ao_only_world_override = None
         if scene.lutb_bake_ao_only:
             cycles.max_bounces = 0
             cycles.fast_gi_method = "ADD"
-            ao_only_world_override = scene_override.world.copy()
-            scene_override.world = ao_only_world_override
+            cycles.samples = scene.lutb_bake_ao_samples
+
+            ao_only_world_override = bpy.data.worlds.new("AO_ONLY")
+            ao_only_world_override.color = (0.0, 0.0, 0.0)
             ao_only_world_override.light_settings.ao_factor = 1.0
             ao_only_world_override.light_settings.distance = 1.0
+            scene_override.world = ao_only_world_override
+
             emission_strength *= scene.lutb_bake_glow_multiplier
-            cycles.samples = scene.lutb_bake_ao_samples
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
