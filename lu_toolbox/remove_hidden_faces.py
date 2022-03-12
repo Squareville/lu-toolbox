@@ -89,22 +89,23 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         mesh.polygons.foreach_get("select", select)
         face_indices = np.where(select)[0]
 
-        image = self.bake_to_image(context, scene_override, mesh, face_indices)
-        hidden_indices = self.get_hidden_from_image(image, mesh, face_indices)
+        if len(face_indices) > 0:
+            image = self.bake_to_image(context, scene_override, mesh, face_indices)
+            hidden_indices = self.get_hidden_from_image(image, mesh, face_indices)
 
-        bpy.ops.object.mode_set(mode="EDIT")
-        context.tool_settings.mesh_select_mode = (False, False, True)
-        bpy.ops.mesh.select_all(action="DESELECT")
-        bpy.ops.object.mode_set(mode="OBJECT")
-
-        select = np.zeros(len(mesh.polygons), dtype=bool)
-        select[hidden_indices] = True
-        mesh.polygons.foreach_set("select", select)
-
-        if self.autoremove:
             bpy.ops.object.mode_set(mode="EDIT")
-            bpy.ops.mesh.delete(type="FACE")
+            context.tool_settings.mesh_select_mode = (False, False, True)
+            bpy.ops.mesh.select_all(action="DESELECT")
             bpy.ops.object.mode_set(mode="OBJECT")
+
+            select = np.zeros(len(mesh.polygons), dtype=bool)
+            select[hidden_indices] = True
+            mesh.polygons.foreach_set("select", select)
+
+            if self.autoremove:
+                bpy.ops.object.mode_set(mode="EDIT")
+                bpy.ops.mesh.delete(type="FACE")
+                bpy.ops.object.mode_set(mode="OBJECT")
 
         bpy.data.scenes.remove(scene_override)
 
