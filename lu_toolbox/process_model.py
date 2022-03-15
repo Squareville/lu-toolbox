@@ -12,7 +12,7 @@ from .divide_mesh import divide_mesh
 
 IS_TRANSPARENT = "lu_toolbox_is_transparent"
 
-LOD_SUFFIXES = ("LOD_0", "LOD_1", "LOD_2")
+LOD_SUFFIXES = ("LOD_0", "LOD_1", "LOD_2", "LOD_3")
 
 class LUTB_OT_process_model(bpy.types.Operator):
     """Process LU model"""
@@ -443,14 +443,19 @@ class LUTB_OT_process_model(bpy.types.Operator):
                         lod_obj.parent = node_obj
                         collection.objects.link(lod_obj)
 
+                        # DYNAMIC LOD HELL
                         if len(used_lods) == 1:
                             lod_obj["near_extent"] = scene.lutb_lod0
                             lod_obj["far_extent"] = scene.lutb_cull
 
                         elif suffix == LOD_SUFFIXES[0]:
                             lod_obj["near_extent"] = scene.lutb_lod0
-                            if used_lods == {suffix, LOD_SUFFIXES[2]}:
+                            if used_lods in [
+                                    {suffix, LOD_SUFFIXES[2]},
+                                    {suffix, LOD_SUFFIXES[2], LOD_SUFFIXES[3]}]:
                                 lod_obj["far_extent"] = scene.lutb_lod2
+                            elif used_lods == {suffix, LOD_SUFFIXES[3]}:
+                                lod_obj["far_extent"] = scene.lutb_lod3
                             else:
                                 lod_obj["far_extent"] = scene.lutb_lod1
 
@@ -458,20 +463,48 @@ class LUTB_OT_process_model(bpy.types.Operator):
                             if used_lods == {LOD_SUFFIXES[0], suffix}:
                                 lod_obj["near_extent"] = scene.lutb_lod1
                                 lod_obj["far_extent"] = scene.lutb_cull
-                            elif used_lods == {suffix, LOD_SUFFIXES[2]}:
+                            elif used_lods in [
+                                    {suffix, LOD_SUFFIXES[2]},
+                                    {suffix, LOD_SUFFIXES[2], LOD_SUFFIXES[3]}]:
                                 lod_obj["near_extent"] = scene.lutb_lod0
                                 lod_obj["far_extent"] = scene.lutb_lod2
-                            elif used_lods == {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[2]}:
+                            elif used_lods == {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[3]}:
+                                lod_obj["near_extent"] = scene.lutb_lod1
+                                lod_obj["far_extent"] = scene.lutb_lod3
+                            elif used_lods == {suffix, LOD_SUFFIXES[3]}:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_lod3
+                            elif used_lods in [
+                                    {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[2]},
+                                    {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[2], LOD_SUFFIXES[3]}]:
                                 lod_obj["near_extent"] = scene.lutb_lod1
                                 lod_obj["far_extent"] = scene.lutb_lod2
 
                         elif suffix == LOD_SUFFIXES[2]:
-                            lod_obj["near_extent"] = scene.lutb_lod2
+                            if used_lods in [
+                                    {LOD_SUFFIXES[0], suffix},
+                                    {LOD_SUFFIXES[1], suffix},
+                                    {LOD_SUFFIXES[0], LOD_SUFFIXES[1], suffix}]:
+                                lod_obj["near_extent"] = scene.lutb_lod2
+                                lod_obj["far_extent"] = scene.lutb_cull
+                            elif used_lods == {suffix, LOD_SUFFIXES[3]}:
+                                lod_obj["near_extent"] = scene.lutb_lod0
+                                lod_obj["far_extent"] = scene.lutb_lod3
+                            elif used_lods in [
+                                    {LOD_SUFFIXES[0], suffix, LOD_SUFFIXES[3]},
+                                    {LOD_SUFFIXES[1], suffix, LOD_SUFFIXES[3]},
+                                    {LOD_SUFFIXES[0], LOD_SUFFIXES[1], suffix, LOD_SUFFIXES[3]}]:
+                                lod_obj["near_extent"] = scene.lutb_lod2
+                                lod_obj["far_extent"] = scene.lutb_lod3
+
+                        elif suffix == LOD_SUFFIXES[3]:
+                            lod_obj["near_extent"] = scene.lutb_lod3
                             lod_obj["far_extent"] = scene.lutb_cull
 
                         node_lods[suffix] = lod_obj
 
                     obj.parent = lod_obj
+
 
 class LUToolboxPanel:
     bl_space_type = "VIEW_3D"
@@ -654,7 +687,8 @@ def register():
     bpy.types.Scene.lutb_shader_prefix = StringProperty(name="Shader Prefix", default="S01")
     bpy.types.Scene.lutb_lod0 = FloatProperty(name="LOD 0", soft_min=0.0, default=0.0, soft_max=25.0)
     bpy.types.Scene.lutb_lod1 = FloatProperty(name="LOD 1", soft_min=0.0, default=50.0, soft_max=100.0)
-    bpy.types.Scene.lutb_lod2 = FloatProperty(name="LOD 2", soft_min=0.0, default=120.0, soft_max=500.0)
+    bpy.types.Scene.lutb_lod2 = FloatProperty(name="LOD 2", soft_min=0.0, default=100.0, soft_max=280.0)
+    bpy.types.Scene.lutb_lod3 = FloatProperty(name="LOD 3", soft_min=0.0, default=280.0, soft_max=500.0)
     bpy.types.Scene.lutb_cull = FloatProperty(name="Cull", soft_min=1000.0, default=10000.0, soft_max=50000.0)
 
 def unregister():
