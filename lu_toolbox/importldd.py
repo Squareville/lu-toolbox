@@ -3,13 +3,11 @@
 import bpy
 import mathutils
 from bpy_extras.io_utils import (
-        ImportHelper,
-        orientation_helper,
-        axis_conversion,
-        )
+    ImportHelper,
+    axis_conversion,
+)
 
 import os
-import platform
 import sys
 import math
 import time
@@ -18,21 +16,24 @@ import zipfile
 from xml.dom import minidom
 import uuid
 import random
-import time
 
-from .materials import *
+from .materials import (
+    MATERIALS_OPAQUE,
+    MATERIALS_TRANSPARENT,
+    MATERIALS_METALLIC,
+    MATERIALS_GLOW
+)
 
-# ImportHelper is a helper class, defines filename and
-# invoke() function which calls the file selector.
-from bpy_extras.io_utils import ImportHelper
-from bpy.props import StringProperty, BoolProperty, EnumProperty
+from bpy.props import StringProperty, BoolProperty
 from bpy.types import Operator, AddonPreferences
+
 
 class ImportLDDPreferences(AddonPreferences):
     bl_idname = __package__
     brickdbpath: StringProperty(
         name="Brick DB",
-        subtype='FILE_PATH')
+        subtype='FILE_PATH'
+    )
 
     def draw(self, context):
         self.layout.label(text="Path to Brick DB (or luclient/res/)")
@@ -41,8 +42,8 @@ class ImportLDDPreferences(AddonPreferences):
 
 class ImportLDDOps(Operator, ImportHelper):
     """This appears in the tooltip of the operator and in the generated docs"""
-    bl_description  = "Import LEGO Digital Designer scenes (.lxf/.lxfml)"
-    bl_idname = "import_scene.importldd"  # important since its how bpy.ops.import_test.some_data is constructed
+    bl_description = "Import LEGO Digital Designer scenes (.lxf/.lxfml)"
+    bl_idname = "import_scene.importldd"
     bl_label = "Import LDD scene"
 
     # ImportHelper mixin class uses this
@@ -63,12 +64,18 @@ class ImportLDDOps(Operator, ImportHelper):
     importLOD1: BoolProperty(
         name="LOD1",
         description="Import LOD1",
-        default=True,
+        default=False,
     )
 
     importLOD2: BoolProperty(
         name="LOD2",
         description="Import LOD2",
+        default=True,
+    )
+
+    importLOD3: BoolProperty(
+        name="LOD3",
+        description="Import LOD3",
         default=True,
     )
 
@@ -92,14 +99,17 @@ class ImportLDDOps(Operator, ImportHelper):
             self.importLOD0,
             self.importLOD1,
             self.importLOD2,
+            self.importLOD3,
             self.overwriteScene,
             self.useNormals
         )
+
 
 def register():
     bpy.utils.register_class(ImportLDDOps)
     bpy.utils.register_class(ImportLDDPreferences)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+
 
 def unregister():
     bpy.utils.unregister_class(ImportLDDOps)
@@ -111,7 +121,8 @@ def unregister():
 def menu_func_import(self, context):
     self.layout.operator(ImportLDDOps.bl_idname, text="LEGO Exchange Format (.lxf/.lxfml)")
 
-def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2, overwriteScene, useNormals):
+
+def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2, importLOD3, overwriteScene, useNormals):
 
     preferences = context.preferences
     addon_prefs = preferences.addons[__package__].preferences
@@ -130,8 +141,8 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
     if os.path.isdir(primaryBrickDBPath):
         self.report({'INFO'}, 'Found DB folder.')
         start = time.process_time()
-        setDBFolderVars(dbfolderlocation = primaryBrickDBPath)
-        converter.LoadDBFolder(dbfolderlocation = primaryBrickDBPath)
+        setDBFolderVars(dbfolderlocation=primaryBrickDBPath)
+        converter.LoadDBFolder(dbfolderlocation=primaryBrickDBPath)
         end = time.process_time()
         self.report({'INFO'}, f'Time taken to load Brick DB: {end - start} seconds')
 
@@ -151,19 +162,44 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
 
         if importLOD0:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='0', parent_collection=col, useNormals=useNormals)
+            converter.Export(
+                filename=filepath,
+                lod='0',
+                parent_collection=col,
+                useNormals=useNormals
+            )
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
         if importLOD1:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='1', parent_collection=col, useNormals=useNormals)
+            converter.Export(
+                filename=filepath,
+                lod='1',
+                parent_collection=col,
+                useNormals=useNormals
+            )
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
         if importLOD2:
             start = time.process_time()
-            converter.Export(filename=filepath, lod='2', parent_collection=col, useNormals=useNormals)
+            converter.Export(
+                filename=filepath,
+                lod='2',
+                parent_collection=col,
+                useNormals=useNormals
+            )
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
+        if importLOD3:
+            start = time.process_time()
+            converter.Export(
+                filename=filepath,
+                lod='3',
+                parent_collection=col,
+                useNormals=useNormals
+            )
+            end = time.process_time()
+            self.report({'INFO'}, f'Time taken to Load LOD3: {end - start} seconds')
     except Exception as e:
         self.report({'ERROR'}, e)
 
@@ -173,8 +209,14 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
 PRIMITIVEPATH = '/Primitives/'
 GEOMETRIEPATH = PRIMITIVEPATH + 'LOD0/'
 
+
 class Matrix3D:
-    def __init__(self, n11=1,n12=0,n13=0,n14=0,n21=0,n22=1,n23=0,n24=0,n31=0,n32=0,n33=1,n34=0,n41=0,n42=0,n43=0,n44=1):
+    def __init__(
+            self,
+            n11=1, n12=0, n13=0, n14=0,
+            n21=0, n22=1, n23=0, n24=0,
+            n31=0, n32=0, n33=1, n34=0,
+            n41=0, n42=0, n43=0, n44=1):
         self.n11 = n11
         self.n12 = n12
         self.n13 = n13
@@ -198,7 +240,7 @@ class Matrix3D:
             {self.n31}, {self.n32}, {self.n33}, {self.n34}, \
             {self.n41}, {self.n42}, {self.n43}, {self.n44}]"
 
-    def rotate(self,angle=0,axis=0):
+    def rotate(self, angle=0, axis=0):
         c = math.cos(angle)
         s = math.sin(angle)
         t = 1 - c
@@ -251,19 +293,20 @@ class Matrix3D:
             self.n14 * other.n41 + self.n24 * other.n42 + self.n34 * other.n43 + self.n44 * other.n44
         )
 
+
 class Point3D:
-    def __init__(self, x=0,y=0,z=0):
+    def __init__(self, x=0, y=0, z=0):
         self.x = x
         self.y = y
         self.z = z
 
     def __str__(self):
-        return '[{0},{1},{2}]'.format(self.x, self.y,self.z)
+        return '[{0},{1},{2}]'.format(self.x, self.y, self.z)
 
-    def string(self,prefix = "v"):
-        return '{0} {1:f} {2:f} {3:f}\n'.format(prefix ,self.x , self.y, self.z)
+    def string(self, prefix="v"):
+        return '{0} {1:f} {2:f} {3:f}\n'.format(prefix, self.x, self.y, self.z)
 
-    def transformW(self,matrix):
+    def transformW(self, matrix):
         x = matrix.n11 * self.x + matrix.n21 * self.y + matrix.n31 * self.z
         y = matrix.n12 * self.x + matrix.n22 * self.y + matrix.n32 * self.z
         z = matrix.n13 * self.x + matrix.n23 * self.y + matrix.n33 * self.z
@@ -271,7 +314,7 @@ class Point3D:
         self.y = y
         self.z = z
 
-    def transform(self,matrix):
+    def transform(self, matrix):
         x = matrix.n11 * self.x + matrix.n21 * self.y + matrix.n31 * self.z + matrix.n41
         y = matrix.n12 * self.x + matrix.n22 * self.y + matrix.n32 * self.z + matrix.n42
         z = matrix.n13 * self.x + matrix.n23 * self.y + matrix.n33 * self.z + matrix.n43
@@ -280,27 +323,31 @@ class Point3D:
         self.z = z
 
     def copy(self):
-        return Point3D(x=self.x,y=self.y,z=self.z)
+        return Point3D(x=self.x, y=self.y, z=self.z)
+
 
 class Point2D:
-    def __init__(self, x=0,y=0):
+    def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
 
     def __str__(self):
         return '[{0},{1}]'.format(self.x, self.y * -1)
-    def string(self,prefix="t"):
-        return '{0} {1:f} {2:f}\n'.format(prefix , self.x, self.y * -1 )
+
+    def string(self, prefix="t"):
+        return '{0} {1:f} {2:f}\n'.format(prefix, self.x, self.y * -1)
+
     def copy(self):
-        return Point2D(x=self.x,y=self.y)
+        return Point2D(x=self.x, y=self.y)
+
 
 class Face:
-    def __init__(self,a=0,b=0,c=0):
+    def __init__(self, a=0, b=0, c=0):
         self.a = a
         self.b = b
         self.c = c
 
-    def string(self,prefix="f", indexOffset=0 ,textureoffset=0):
+    def string(self, prefix="f", indexOffset=0, textureoffset=0):
         if textureoffset == 0:
             return prefix + ' {0}//{0} {1}//{1} {2}//{2}\n'.format(
                 self.a + indexOffset,
@@ -320,9 +367,11 @@ class Face:
     def __str__(self):
         return '[{0},{1},{2}]'.format(self.a, self.b, self.c)
 
+
 class Group:
     def __init__(self, node):
         self.partRefs = node.getAttribute('partRefs').split(',')
+
 
 class Bone:
     def __init__(self, node):
@@ -339,13 +388,13 @@ class Bone:
             # raise Exception("Cannot Properly import Old LDD Save formats")
             rotationMatrix = Matrix3D()
             rotationMatrix.rotate(
-                angle = float(node.getAttribute('angle')) * math.pi / 180.0,
-                axis = Point3D(
+                angle=float(node.getAttribute('angle')) * math.pi / 180.0,
+                axis=Point3D(
                     x=float(node.getAttribute('ax')),
                     y=float(node.getAttribute('ay')),
                     z=float(node.getAttribute('az'))
                 )
-                )
+            )
             p = Point3D(
                 x=float(node.getAttribute('tx')),
                 y=float(node.getAttribute('ty')),
@@ -372,13 +421,10 @@ class Part:
             for childnode in node.childNodes:
                 if childnode.nodeName == 'Bone':
                     self.Bones.append(Bone(node=childnode))
-            lastm = '0'
             for i, m in enumerate(self.materials):
                 if (m == '0'):
                     # self.materials[i] = lastm
-                    self.materials[i] = self.materials[0] #in case of 0 choose the 'base' material
-                else:
-                    lastm = m
+                    self.materials[i] = self.materials[0]  # in case of 0 choose the 'base' material
         elif node.hasAttribute('materialID'):
             self.materials = [str(node.getAttribute('materialID'))]
             self.Bones.append(Bone(node=node))
@@ -449,7 +495,6 @@ class Scene:
                         part.isGrouped = True
                         part.GroupIDX = i
 
-        # print(f'Scene "{self.Name}" Brickversion: {self.Version}')
 
 class GeometryReader:
     def __init__(self, data):
@@ -471,10 +516,14 @@ class GeometryReader:
             options = self.readInt()
 
             for i in range(0, self.valueCount):
-                self.positions.append(Point3D(x=self.readFloat(),y= self.readFloat(),z=self.readFloat()))
+                self.positions.append(
+                    Point3D(x=self.readFloat(), y=self.readFloat(), z=self.readFloat())
+                )
 
             for i in range(0, self.valueCount):
-                 self.normals.append(Point3D(x=self.readFloat(),y= self.readFloat(),z=self.readFloat()))
+                self.normals.append(
+                    Point3D(x=self.readFloat(), y=self.readFloat(), z=self.readFloat())
+                )
 
             if (options & 3) == 3:
                 self.texCount = self.valueCount
@@ -482,7 +531,7 @@ class GeometryReader:
                     self.textures.append(Point2D(x=self.readFloat(), y=self.readFloat()))
 
             for i in range(0, self.faceCount):
-                self.faces.append(Face(a=self.readInt(),b=self.readInt(),c=self.readInt()))
+                self.faces.append(Face(a=self.readInt(), b=self.readInt(), c=self.readInt()))
 
             if (options & 48) == 48:
                 num = self.readInt()
@@ -500,7 +549,7 @@ class GeometryReader:
                     boneoffset = self.readInt() + 4
                     self.bonemap[i] = self.read_Int(datastart + boneoffset)
 
-    def read_Int(self,_offset):
+    def read_Int(self, _offset):
         if sys.version_info < (3, 0):
             return int(struct.unpack_from('i', self.data, _offset)[0])
         else:
@@ -519,25 +568,26 @@ class GeometryReader:
         self.offset += 4
         return ret
 
+
 class Geometry:
     def __init__(self, designID, database, lod):
         self.designID = designID
         self.Parts = {}
         self.maxGeoBounding = -1
 
-        if lod == None:
+        if lod is None:
             geompath = GEOMETRIEPATH
         else:
             geompath = os.path.join(database.location, 'brickprimitives', 'lod' + lod + '/')
 
-        GeometryLocation = os.path.normpath('{0}{1}{2}'.format(geompath, designID,'.g'))
+        GeometryLocation = os.path.normpath('{0}{1}{2}'.format(geompath, designID, '.g'))
         GeometryCount = 0
         while str(GeometryLocation) in database.filelist:
             self.Parts[GeometryCount] = GeometryReader(data=database.filelist[GeometryLocation].read())
             GeometryCount += 1
             GeometryLocation = os.path.normpath(f'{geompath}{designID}.g{GeometryCount}')
 
-        primitive = Primitive(data = database.filelist[os.path.normpath(PRIMITIVEPATH + designID + '.xml')].read())
+        primitive = Primitive(data=database.filelist[os.path.normpath(PRIMITIVEPATH + designID + '.xml')].read())
         self.Partname = primitive.Designname
         try:
             geoBoundingList = [
@@ -581,25 +631,33 @@ class Geometry:
             count += self.Parts[part].texCount
         return count
 
+
 class Bone2:
-    def __init__(self,boneId=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
+    def __init__(self, boneId=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
         self.boneId = boneId
         rotationMatrix = Matrix3D()
-        rotationMatrix.rotate(angle = -angle * math.pi / 180.0,axis = Point3D(x=ax,y=ay,z=az))
-        p = Point3D(x=tx,y=ty,z=tz)
+        rotationMatrix.rotate(
+            angle=(-angle * math.pi / 180.0),
+            axis=Point3D(x=ax, y=ay, z=az)
+        )
+        p = Point3D(x=tx, y=ty, z=tz)
         p.transformW(rotationMatrix)
         rotationMatrix.n41 -= p.x
         rotationMatrix.n42 -= p.y
         rotationMatrix.n43 -= p.z
         self.matrix = rotationMatrix
 
+
 class Field2D:
     def __init__(self, type=0, width=0, height=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0, field2DRawData='none'):
         self.type = type
         self.field2DRawData = field2DRawData
         rotationMatrix = Matrix3D()
-        rotationMatrix.rotate(angle = -angle * math.pi / 180.0, axis = Point3D(x=ax,y=ay,z=az))
-        p = Point3D(x=tx,y=ty,z=tz)
+        rotationMatrix.rotate(
+            angle=(-angle * math.pi / 180.0),
+            axis=Point3D(x=ax, y=ay, z=az)
+        )
+        p = Point3D(x=tx, y=ty, z=tz)
         p.transformW(rotationMatrix)
         rotationMatrix.n41 -= p.x
         rotationMatrix.n42 -= p.y
@@ -608,7 +666,8 @@ class Field2D:
         self.matrix = rotationMatrix
         self.custom2DField = []
 
-        #The height and width are always double the number of studs. The contained text is a 2D array that is always height + 1 and width + 1.
+        # The height and width are always double the number of studs.
+        # The contained text is a 2D array that is always height + 1 and width + 1.
         rows_count = height + 1
         cols_count = width + 1
         # creation looks reverse
@@ -627,18 +686,22 @@ class Field2D:
     def __str__(self):
         return f'[type="{self.type}" transform="{self.matrix}" custom2DField="{self.custom2DField}"]'
 
+
 class CollisionBox:
     def __init__(self, sX=0, sY=0, sZ=0, angle=0, ax=0, ay=0, az=0, tx=0, ty=0, tz=0):
         rotationMatrix = Matrix3D()
-        rotationMatrix.rotate(angle = -angle * math.pi / 180.0, axis = Point3D(x=ax,y=ay,z=az))
-        p = Point3D(x=tx,y=ty,z=tz)
+        rotationMatrix.rotate(
+            angle=(-angle * math.pi / 180.0),
+            axis=Point3D(x=ax, y=ay, z=az)
+        )
+        p = Point3D(x=tx, y=ty, z=tz)
         p.transformW(rotationMatrix)
         rotationMatrix.n41 -= p.x
         rotationMatrix.n42 -= p.y
         rotationMatrix.n43 -= p.z
 
         self.matrix = rotationMatrix
-        self.corner = Point3D(x=sX,y=sY,z=sZ)
+        self.corner = Point3D(x=sX, y=sY, z=sZ)
         self.positions = []
 
         self.positions.append(Point3D(x=0, y=0, z=0))
@@ -647,8 +710,8 @@ class CollisionBox:
         self.positions.append(Point3D(x=sX, y=sY, z=0))
         self.positions.append(Point3D(x=0, y=0, z=sZ))
         self.positions.append(Point3D(x=0, y=sY, z=sZ))
-        self.positions.append(Point3D(x=sX ,y=0, z=sZ))
-        self.positions.append(Point3D(x=sX ,y=sY, z=sZ))
+        self.positions.append(Point3D(x=sX, y=0, z=sZ))
+        self.positions.append(Point3D(x=sX, y=sY, z=sZ))
 
     def __str__(self):
         return f'[0,0,0] \
@@ -659,6 +722,7 @@ class CollisionBox:
             [0,{self.corner.y},{self.corner.z}] \
             [{self.corner.x},0,{2}] \
             [{self.corner.x},{1},{2}]'
+
 
 class Primitive:
     def __init__(self, data):
@@ -799,16 +863,12 @@ class MaterialRi:
         self.a = a
 
     def string(self, decorationId):
-        texture_strg = ''
-        ref_strg = ''
 
-        rgb_or_dec_str = '({0}, {1}, {2})'.format(self.r, self.g, self.b)
         matId_or_decId = self.materialId
 
         material = bpy.data.materials.new(matId_or_decId)
         material.diffuse_color = (self.r, self.g, self.b, self.a)
 
-        #return bxdf_mat_str
         return material
 
 
@@ -835,7 +895,7 @@ class DBFolderReader:
 
         try:
             os.path.isdir(self.location)
-        except Exception as e:
+        except Exception:
             self.initok = False
             print("db folder read FAIL")
             return
@@ -851,10 +911,10 @@ class DBFolderReader:
         return filename in self.filelist
 
     def parse(self):
-        if not os.path.exists(os.path.join(self.location,"Assemblies")) and \
-                os.path.exists(os.path.join(self.location,"brickdb.zip")):
+        if not os.path.exists(os.path.join(self.location, "Assemblies")) and \
+                os.path.exists(os.path.join(self.location, "brickdb.zip")):
             print("Found brickdb.zip without uzipped files")
-            with zipfile.ZipFile(os.path.join(self.location,"brickdb.zip"), 'r') as zip_ref:
+            with zipfile.ZipFile(os.path.join(self.location, "brickdb.zip"), 'r') as zip_ref:
                 print("Extracting brickdb.zip")
                 zip_ref.extractall(self.location)
         extentions = ('.g', '.g1', '.g2', '.g3', '.g4', '.xml')
@@ -873,29 +933,21 @@ class Converter:
         if self.database.initok:
             self.allMaterials = Materials()
 
-    def LoadScene(self,filename):
+    def LoadScene(self, filename):
         if self.database.initok:
             self.scene = Scene(file=filename)
 
     def Export(self, filename, lod=None, parent_collection=None, useNormals=True):
         invert = Matrix3D()
-
-        indexOffset = 1
-        textOffset = 1
         usedmaterials = []
         geometriecache = {}
-        writtenribs = []
-
-        start_time = time.time()
-
-        total = len(self.scene.Bricks)
         current = 0
         currentpart = 0
 
         miny = 1000
 
-        global_matrix = axis_conversion(from_forward='-Z', from_up='Y', to_forward='Y',to_up='Z').to_4x4()
-        if lod != None:
+        global_matrix = axis_conversion(from_forward='-Z', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
+        if lod is not None:
             col = bpy.data.collections.new(self.scene.Name + '_LOD_' + lod)
         else:
             col = bpy.data.collections.new(self.scene.Name)
@@ -916,7 +968,7 @@ class Converter:
                         geometriecache[pa.designID] = geo
                     else:
                         geo = geometriecache[pa.designID]
-                except Exception as e:
+                except Exception:
                     print(f'WARNING: Missing geo for {pa.designID}')
                     continue
 
@@ -954,10 +1006,16 @@ class Converter:
                 brick_object.empty_display_size = 1.25
                 brick_object.empty_display_type = 'PLAIN_AXES'
 
-
                 if not (len(pa.Bones) > flexflag):
-                # Flex parts don't need to be moved, but non-flex parts need
-                    transform_matrix = mathutils.Matrix(((n11, n21, n31, n41),(n12, n22, n32, n42),(n13, n23, n33, n43),(n14, n24, n34, n44)))
+                    # Flex parts don't need to be moved, but non-flex parts need
+                    transform_matrix = mathutils.Matrix(
+                        (
+                            (n11, n21, n31, n41),
+                            (n12, n22, n32, n42),
+                            (n13, n23, n33, n43),
+                            (n14, n24, n34, n44)
+                        )
+                    )
 
                     # Random Scale for brick seams
                     scalefact = (geo.maxGeoBounding - 0.000 * random.uniform(0.0, 1.000)) / geo.maxGeoBounding
@@ -966,9 +1024,6 @@ class Converter:
                     if miny > float(n42):
                         miny = n42
 
-
-
-                # transform -------------------------------------------------------
                 last_color = 0
                 for part in geo.Parts:
 
@@ -985,12 +1040,12 @@ class Converter:
                             # positions
                             for j, p in enumerate(geo.Parts[part].outpositions):
                                 if (geo.Parts[part].bonemap[j] == i):
-                                    p.transform( invert * b.matrix)
+                                    p.transform(invert * b.matrix)
 
                             # normals
                             for k, n in enumerate(geo.Parts[part].outnormals):
                                 if (geo.Parts[part].bonemap[k] == i):
-                                    n.transformW( invert * b.matrix)
+                                    n.transformW(invert * b.matrix)
 
                     if "geo{0}".format(written_geo) not in geometriecache:
 
@@ -1008,7 +1063,7 @@ class Converter:
 
                         faces = []
                         for face in geo.Parts[part].faces:
-                            single_face = [face.a , face.b, face.c]
+                            single_face = [face.a, face.b, face.c]
                             faces.append(single_face)
 
                         edges = []
@@ -1032,21 +1087,17 @@ class Converter:
                     geo_obj.parent = brick_object
                     col.objects.link(geo_obj)
 
-                    #try catch here for possible problems in materials assignment of various g, g1, g2, .. files in lxf file
+                    # try catch here for possible problems in materials assignment of various g, g1, g2, .. files in lxf file
                     try:
                         materialCurrentPart = pa.materials[part]
                         last_color = pa.materials[part]
                     except IndexError:
-                        # print(
-                        #     f'WARNING: {pa.designID}.g{part} has NO material assignment in lxf. \
-                        #     Replaced with color {last_color}. Fix {pa.designID}.xml faces values.'
-                        # )
                         materialCurrentPart = last_color
 
                     lddmatri = self.allMaterials.getMaterialRibyId(materialCurrentPart)
                     matname = materialCurrentPart
 
-                    if not matname in usedmaterials:
+                    if matname not in usedmaterials:
                         mesh.materials.append(lddmatri.string(None))
 
                     if len(geo.Parts[part].textures) > 0:
@@ -1065,26 +1116,17 @@ class Converter:
                                 uv_layer[loop_index].uv = uvs[mesh.loops[loop_index].vertex_index]
 
                 if not (len(pa.Bones) > flexflag):
-                    #Transform (move) only non-flex parts
-                    brick_object.matrix_world =  global_matrix @ transform_matrix
+                    # Transform (move) only non-flex parts
+                    brick_object.matrix_world = global_matrix @ transform_matrix
                     brick_object.scale = (scalefact, scalefact, scalefact)
 
                 else:
-                    #Flex parts need only to be aligned the Blender coordinate system
+                    # Flex parts need only to be aligned the Blender coordinate system
                     brick_object.matrix_world = global_matrix
 
-                # -----------------------------------------------------------------
-
-                # Reset index for each part
-                indexOffset = 1
-                textOffset = 1
-
         useplane = True
-        if useplane == True: # write the floor plane in case True
+        if useplane is True:  # write the floor plane in case True
             i = 0
-
-        sys.stdout.write('%s\r' % ('                                                                                                 '))
-        print("--- %s seconds ---" % (time.time() - start_time))
 
 
 def setDBFolderVars(dbfolderlocation):
