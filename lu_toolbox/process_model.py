@@ -626,6 +626,7 @@ class LUTB_PT_setup_metadata(LUToolboxPanel, bpy.types.Panel):
         layout.prop(scene, "lutb_lod0")
         layout.prop(scene, "lutb_lod1")
         layout.prop(scene, "lutb_lod2")
+        layout.prop(scene, "lutb_lod3")
         layout.prop(scene, "lutb_cull")
 
 def register():
