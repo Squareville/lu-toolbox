@@ -5,8 +5,11 @@ A Blender Add-on which adds a bunch of useful tools to prepare models for use in
 
 ## Features
 
- * < Put Core toolbox features here >
- * Custom LEGO Exchange Format (.lxf/.lxfml) Importer
+ * Custom LEGO Exchange Format (.lxf/.lxfml) Importer.
+ * Automatic model preparation with many useful processes.
+ * Custom, helpful workflow for baking materials, lighting, ambient occlusion, alpha, and more to vertex colors.
+ * Automatic pathtraced hidden surface removal to clean out model interiors of unseen geometry.
+ * Many options and toggles to fit a variety of artist workflows.
 
 <hr>
 
