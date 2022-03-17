@@ -7,7 +7,7 @@ A Blender Add-on which adds a bunch of useful tools to prepare models for use in
 
  * Custom LEGO Exchange Format (.lxf/.lxfml) Importer.
  * Automatic model preparation with many useful processes.
- * Custom, helpful workflow for baking materials, lighting, ambient occlusion, alpha, and more to vertex colors.
+ * Custom workflow for baking materials, lighting, ambient occlusion, alpha, and more to vertex colors.
  * Automatic pathtraced hidden surface removal to clean out model interiors of unseen geometry.
  * Many options and toggles to fit a variety of artist workflows.
 
@@ -50,7 +50,7 @@ This importer is derived from [sttng's ImportLDD Add-on](https://github.com/sttn
  * Missing data handling:
    * Bricks missing from brick database will be skipped
    * Completely missing colors will be set to black (Color ID 26)
-   * Color missing from secondary brick geo files is handled correctly
+   * Color missing from secondary brick geo is handled correctly
  * Overwrite Scene Option:
    * Delete all objects and collections from Blender scene before importing.
 
