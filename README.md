@@ -27,8 +27,7 @@ After installation you can find the add-on in the right sidepanel (N-panel) of t
 
 #### Blender Version
 
-The minimum compatible Blender version is 2.93.
-The add-on is generally compatible with Blender 3.0+ but there are a few breaking bugs with vertex color baking that make it almost completely unusable.
+The minimum compatible Blender version for LU Toolbox v2.0 is Blender 3.1.
 
 ## Documentation
 
@@ -49,9 +48,9 @@ This importer is derived from [sttng's ImportLDD Add-on](https://github.com/sttn
    * Colors outside of LU's supported palette will be coerced to the closest color
    * Please report any instances of missing colors so that they can be added
  * Missing data handling:
-   * Bricks with missing geo's will be skipped
-   * Missing colors will be set to black (Material ID 26)
-   * Color missing from secondary geo's are handled correctly
+   * Bricks missing from brick database will be skipped
+   * Completely missing colors will be set to black (Color ID 26)
+   * Color missing from secondary brick geo files is handled correctly
  * Overwrite Scene Option:
    * Delete all objects and collections from Blender scene before importing.
 
