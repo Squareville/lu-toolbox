@@ -190,16 +190,24 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
             )
             end = time.process_time()
             self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
+        LOD3_exists = False
         if importLOD3:
-            start = time.process_time()
-            converter.Export(
-                filename=filepath,
-                lod='3',
-                parent_collection=col,
-                useNormals=useNormals
-            )
-            end = time.process_time()
-            self.report({'INFO'}, f'Time taken to Load LOD3: {end - start} seconds')
+            for dirpath, dirnames, filenames in os.walk(primaryBrickDBPath):
+                for dirname in dirnames:
+                    if dirname == "lod3":
+                        LOD3_exists = True
+            if LOD3_exists:
+                start = time.process_time()
+                converter.Export(
+                    filename=filepath,
+                    lod='3',
+                    parent_collection=col,
+                    useNormals=useNormals
+                )
+                end = time.process_time()
+                self.report({'INFO'}, f'Time taken to Load LOD3: {end - start} seconds')
+            else:
+                self.report({'INFO'}, f'LOD3 does not exist, skipping')
     except Exception as e:
         self.report({'ERROR'}, e)
 
