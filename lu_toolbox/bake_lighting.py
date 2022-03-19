@@ -116,7 +116,7 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             ao_only_world_override = bpy.data.worlds.new("AO_ONLY")
             ao_only_world_override.color = (0.0, 0.0, 0.0)
             ao_only_world_override.light_settings.ao_factor = 1.0
-            ao_only_world_override.light_settings.distance = 1.0
+            ao_only_world_override.light_settings.distance = 5.0
             scene_override.world = ao_only_world_override
 
             emission_strength *= scene.lutb_bake_glow_multiplier
