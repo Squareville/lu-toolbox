@@ -29,6 +29,7 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
         layout.prop(scene, "lutb_bake_fast_gi_bounces")
         layout.prop(scene, "lutb_bake_glow_strength")
         layout.prop(scene, "lutb_bake_use_gpu")
+        layout.prop(scene, "lutb_bake_selected_only")
         col = layout.column()
         col.prop(scene, "lutb_bake_use_white_ambient")
         col.active = not scene.lutb_bake_ao_only
@@ -127,8 +128,13 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 obj.hide_render = True
                 hidden_objects.append(obj)
 
+        target_objects = scene.collection.all_objects
+        if scene.lutb_bake_selected_only:
+            target_objects = context.selected_objects
+
         old_active_obj = context.object
-        for obj in (selected := list(context.selected_objects)):
+        old_selected_objects = context.selected_objects
+        for obj in list(target_objects):
             if obj.type != "MESH" or obj.get(IS_TRANSPARENT):
                 continue
 
@@ -210,12 +216,12 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         if ao_only_world_override:
             bpy.data.worlds.remove(ao_only_world_override)
 
-        for obj in selected:
-            obj.select_set(True)
-
         for obj in hidden_objects:
             obj.hide_render = False
 
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in old_selected_objects:
+            obj.select_set(True)
         context.view_layer.objects.active = old_active_obj
 
         end = timer()
@@ -229,6 +235,7 @@ def register():
     bpy.utils.register_class(LUTB_PT_mat_override)
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
+    bpy.types.Scene.lutb_bake_selected_only = BoolProperty(name="Selected Only")
     bpy.types.Scene.lutb_bake_smooth_lit = BoolProperty(name="Smooth Vertex Colors", default=True)
     bpy.types.Scene.lutb_bake_samples = IntProperty(name="Samples", default=256, min=1, description=""\
         "Number of samples to render for each vertex")
@@ -245,6 +252,7 @@ def register():
 
 def unregister():
     del bpy.types.Scene.lutb_bake_use_gpu
+    del bpy.types.Scene.lutb_bake_selected_only
     del bpy.types.Scene.lutb_bake_smooth_lit
     del bpy.types.Scene.lutb_bake_samples
     del bpy.types.Scene.lutb_bake_fast_gi_bounces
