@@ -25,25 +25,43 @@ class LUTB_PT_bake_lighting(bpy.types.Panel):
 
         layout.separator()
 
-        layout.prop(scene, "lutb_bake_samples")
-        layout.prop(scene, "lutb_bake_fast_gi_bounces")
-        layout.prop(scene, "lutb_bake_glow_strength")
         layout.prop(scene, "lutb_bake_use_gpu")
         layout.prop(scene, "lutb_bake_selected_only")
         col = layout.column()
         col.prop(scene, "lutb_bake_use_white_ambient")
         col.active = not scene.lutb_bake_ao_only
         layout.prop(scene, "lutb_bake_smooth_lit")
-        layout.prop(scene, "lutb_bake_ao_only")
-        col = layout.column()
-        col.prop(scene, "lutb_bake_glow_multiplier")
-        col.prop(scene, "lutb_bake_ao_samples")
-        col.active = scene.lutb_bake_ao_only
         col = layout.column()
         col.prop(scene, "lutb_bake_force_to_white")
         col.active = not scene.lutb_bake_use_mat_override
 
-class LUTB_PT_mat_override(bpy.types.Panel):
+        layout.prop(scene, "lutb_bake_samples")
+        layout.prop(scene, "lutb_bake_fast_gi_bounces")
+        layout.prop(scene, "lutb_bake_glow_strength")
+
+class LUTB_PT_bake_ao_only(bpy.types.Panel):
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    bl_category = "LU Toolbox"
+    bl_label = "AO Only"
+    bl_parent_id = "LUTB_PT_bake_lighting"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    def draw_header(self, context):
+        self.layout.prop(context.scene, "lutb_bake_ao_only", text="")
+
+    def draw(self, context):
+        scene = context.scene
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = scene.lutb_bake_ao_only
+
+        layout.prop(scene, "lutb_bake_glow_multiplier")
+        layout.prop(scene, "lutb_bake_ao_samples")
+
+class LUTB_PT_bake_mat_override(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "LU Toolbox"
@@ -232,7 +250,8 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
 def register():
     bpy.utils.register_class(LUTB_OT_bake_lighting)
     bpy.utils.register_class(LUTB_PT_bake_lighting)
-    bpy.utils.register_class(LUTB_PT_mat_override)
+    bpy.utils.register_class(LUTB_PT_bake_ao_only)
+    bpy.utils.register_class(LUTB_PT_bake_mat_override)
 
     bpy.types.Scene.lutb_bake_use_gpu = BoolProperty(name="Use GPU", default=True)
     bpy.types.Scene.lutb_bake_selected_only = BoolProperty(name="Selected Only")
@@ -265,6 +284,7 @@ def unregister():
     del bpy.types.Scene.lutb_bake_use_mat_override
     del bpy.types.Scene.lutb_bake_mat_override
 
-    bpy.utils.unregister_class(LUTB_PT_mat_override)
+    bpy.utils.unregister_class(LUTB_PT_bake_mat_override)
+    bpy.utils.unregister_class(LUTB_PT_bake_ao_only)
     bpy.utils.unregister_class(LUTB_PT_bake_lighting)
     bpy.utils.unregister_class(LUTB_OT_bake_lighting)
