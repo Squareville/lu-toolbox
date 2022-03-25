@@ -105,6 +105,8 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
             if self.autoremove:
                 bpy.ops.object.mode_set(mode="EDIT")
                 bpy.ops.mesh.delete(type="FACE")
+                bpy.ops.mesh.select_all(action="SELECT")
+                bpy.ops.mesh.quads_convert_to_tris(quad_method="FIXED")
                 bpy.ops.object.mode_set(mode="OBJECT")
 
         bpy.data.scenes.remove(scene_override)
