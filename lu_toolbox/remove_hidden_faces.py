@@ -109,6 +109,18 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
                 bpy.ops.mesh.quads_convert_to_tris(quad_method="FIXED")
                 bpy.ops.object.mode_set(mode="OBJECT")
 
+            end = timer()
+            n = len(hidden_indices)
+            total = len(select)
+            operation = "removed" if self.autoremove else "found"
+            print(
+                f"hsr info: {operation} {n}/{total} hidden faces ({n / total:.2%}) "\
+                f"in {end - start:.2f}s"
+            )
+
+        else:
+            print("hsr info: found no hidden faces")
+
         bpy.data.scenes.remove(scene_override)
 
         for obj in hidden_objects:
@@ -116,15 +128,6 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         if ground_plane:
             bpy.data.objects.remove(ground_plane)
-
-        end = timer()
-        n = len(hidden_indices)
-        total = len(select)
-        operation = "removed" if self.autoremove else "found"
-        print(
-            f"hsr info: {operation} {n}/{total} hidden faces ({n / total:.2%}) "\
-            f"in {end - start:.2f}s"
-        )
 
         return {"FINISHED"}
 
