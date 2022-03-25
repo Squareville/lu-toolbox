@@ -155,18 +155,9 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
         for obj in list(target_objects):
             if obj.type != "MESH" or obj.get(IS_TRANSPARENT):
                 continue
-
-            other_lod_colls = set()
-            for lod_collection in obj.users_collection:
-                for collection in bpy.data.collections:
-                    if lod_collection.name in collection.children:
-                        other_lod_colls |= set(collection.children) - {lod_collection,}
-
-            for other_lod_coll in list(other_lod_colls):
-                if other_lod_coll.hide_render:
-                    other_lod_colls.remove(other_lod_coll)
-                else:
-                    other_lod_coll.hide_render = True
+            if not obj.name in context.view_layer.objects:
+                self.report({"WARNING"}, f"Skipping \"{obj.name}\". (not in viewlayer)")
+                continue
 
             mesh = obj.data
 
@@ -184,9 +175,17 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
             if vc_lit := mesh.vertex_colors.get("Lit"):
                 mesh.vertex_colors.active_index = mesh.vertex_colors.keys().index(vc_lit.name)
 
-            bpy.ops.object.select_all(action="DESELECT")
-            obj.select_set(True)
-            context.view_layer.objects.active = obj
+            other_lod_colls = set()
+            for lod_collection in obj.users_collection:
+                for collection in bpy.data.collections:
+                    if lod_collection.name in collection.children:
+                        other_lod_colls |= set(collection.children) - {lod_collection,}
+
+            for other_lod_coll in list(other_lod_colls):
+                if other_lod_coll.hide_render:
+                    other_lod_colls.remove(other_lod_coll)
+                else:
+                    other_lod_coll.hide_render = True
 
             old_material = mesh.materials[0]
             if scene.lutb_bake_use_mat_override:
@@ -200,11 +199,25 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                     if node.type == "BSDF_PRINCIPLED":
                         node.inputs['Emission Strength'].default_value = emission_strength
 
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
+            context.view_layer.objects.active = obj
+
             context_override = context.copy()
             context_override["scene"] = scene_override
-            bpy.ops.object.bake(context_override)
+            try:
+                bpy.ops.object.bake(context_override)
+            except RuntimeError as e:
+                if "is not enabled for rendering" in str(e):
+                    self.report({"WARNING"}, f"Skipping \"{obj.name}\". (not enabled for rendering)")
+                    continue
+                else:
+                    raise
+            finally:
+                mesh.materials[0] = old_material
 
-            mesh.materials[0] = old_material
+                for other_lod_coll in other_lod_colls:
+                    other_lod_coll.hide_render = False
 
             has_edge_split_modifier = "EDGE_SPLIT" in {mod.type for mod in obj.modifiers}
             if scene.lutb_bake_smooth_lit and not has_edge_split_modifier:
@@ -225,9 +238,6 @@ class LUTB_OT_bake_lighting(bpy.types.Operator):
                 lit_data = lit_data.reshape((n_loops, 4))
                 lit_data[:, 3] = alpha_data.reshape((n_loops, 4))[:, 0]
                 vc_lit.data.foreach_set("color", lit_data.flatten())
-
-            for other_lod_coll in other_lod_colls:
-                other_lod_coll.hide_render = False
 
         bpy.data.scenes.remove(scene_override)
 
