@@ -31,7 +31,10 @@ class LUTB_OT_process_model(bpy.types.Operator):
         scene.render.engine = "CYCLES"
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
-        self.precombine_bricks(context, scene.collection.children)
+        self.precombine_brick_materials(context, scene.collection.children)
+        for obj in list(scene.collection.all_objects):
+            if obj.type == "EMPTY":
+                bpy.data.objects.remove(obj)
 
         for obj in scene.collection.all_objects:
             if not obj.type == "MESH":
@@ -113,86 +116,38 @@ class LUTB_OT_process_model(bpy.types.Operator):
 
         return {"FINISHED"}
 
-    def precombine_bricks(self, context, collections):
+    def precombine_brick_materials(self, context, collections):
         bricks = {}
         for collection in collections:
-            if not collection.children:
-                continue
-
             for lod_collection in collection.children:
                 if not lod_collection.name[-5:] in LOD_SUFFIXES:
                     continue
 
                 for obj in lod_collection.all_objects:
-                    if not (obj.type == "MESH" and obj.parent):
+                    parent_empty = obj.parent
+                    if not (obj.type == "MESH" and parent_empty):
                         continue
 
-                    if brick := bricks.get(obj.parent):
+                    matrix = obj.matrix_world.copy()
+                    obj.parent = None
+                    obj.matrix_world = matrix
+
+                    brick_id = parent_empty.name.rsplit(".", 1)[0]
+                    if brick := bricks.get(brick_id):
                         brick.append(obj)
                     else:
-                        bricks[obj.parent] = [obj]
+                        bricks[brick_id] = [obj]
 
-        if not bricks:
-            return
-
-        combined_bricks = {}
-        for parent_empty, children in bricks.items():
-            bm = bmesh.new()
-            materials = {}
-
-            for child in children:
-                mesh = child.data
-                for old_mat_index, material in enumerate(mesh.materials):
+        for objs in bricks.values():
+            used_materials = {}
+            for obj in objs:
+                mesh = obj.data
+                for i, material in enumerate(list(mesh.materials)):
                     mat_name = material.name.rsplit(".", 1)[0]
-                    if mat := materials.get(mat_name):
-                        new_mat_index = mat[1]
+                    if replacement_mat := used_materials.get(mat_name):
+                        mesh.materials[i] = replacement_mat
                     else:
-                        new_mat_index = len(materials)
-                        materials[mat_name] = (material, new_mat_index)
-
-                    if old_mat_index != new_mat_index:
-                        for polygon in mesh.polygons:
-                            if polygon.material_index == old_mat_index:
-                                polygon.material_index = new_mat_index
-
-                bm.from_mesh(mesh)
-
-            combined = children[0]
-            combined.name = parent_empty.name
-            combined.parent = None
-            combined.matrix_world = parent_empty.matrix_world.copy()
-            bm.to_mesh(combined.data)
-
-            combined.data.materials.clear()
-            # dictionaries are guaranteed to be ordered in 3.7+ (see PEP 468)
-            for material, _ in materials.values():
-                combined.data.materials.append(material)
-
-            bpy.data.objects.remove(parent_empty)
-            for obj in children[1:]:
-                bpy.data.objects.remove(obj)
-
-            combined_bricks[combined.name] = combined
-
-        brick_base_mats = {}
-        for name, obj in combined_bricks.items():
-            if name[-4:-3] == ".":
-                base_name = name.rsplit(".", 1)[0]
-                if not (base_mats := brick_base_mats.get(base_name)):
-                    if not (obj_base := combined_bricks.get(base_name)):
-                        continue
-
-                    mats = obj_base.data.materials.values()
-                    base_mats = {mat.name.rsplit(".", 1)[0]: mat for mat in mats}
-                    brick_base_mats[base_name] = base_mats
-
-                for i, mat in enumerate(obj.data.materials):
-                    if (base_mat := base_mats.get(mat.name.rsplit(".", 1)[0])):
-                        obj.data.materials[i] = base_mat
-
-        for obj in list(collection.all_objects):
-            if obj.type == "EMPTY":
-                bpy.data.objects.remove(obj)
+                        used_materials[mat_name] = material
 
     def clear_uvs(self, objects):
         for obj in objects:
