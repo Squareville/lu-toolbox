@@ -374,6 +374,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 autoremove=scene.lutb_hsr_autoremove,
                 vc_pre_pass=scene.lutb_hsr_vc_pre_pass,
                 vc_pre_pass_samples=scene.lutb_hsr_vc_pre_pass_samples,
+                ignore_lights=scene.lutb_hsr_ignore_lights,
                 tris_to_quads=scene.lutb_hsr_tris_to_quads,
                 pixels_between_verts=scene.lutb_hsr_pixels_between_verts,
                 samples=scene.lutb_hsr_samples,
@@ -600,6 +601,7 @@ class LUTB_PT_remove_hidden_faces(LUToolboxPanel, bpy.types.Panel):
         row.prop(scene, "lutb_hsr_vc_pre_pass_samples", slider=True)
         row.enabled = scene.lutb_hsr_vc_pre_pass
 
+        layout.prop(scene, "lutb_hsr_ignore_lights")
         layout.prop(scene, "lutb_hsr_tris_to_quads")
         layout.prop(scene, "lutb_hsr_use_ground_plane")
         layout.prop(scene, "lutb_hsr_pixels_between_verts", slider=True)
@@ -677,6 +679,8 @@ def register():
         description=LUTB_OT_remove_hidden_faces.__annotations__["vc_pre_pass"].keywords["description"])
     bpy.types.Scene.lutb_hsr_vc_pre_pass_samples = IntProperty(name="Pre-Pass Samples", min=0, default=32, soft_max=64,
         description=LUTB_OT_remove_hidden_faces.__annotations__["vc_pre_pass_samples"].keywords["description"])
+    bpy.types.Scene.lutb_hsr_ignore_lights = BoolProperty(name="Ignore Lights", default=True,
+        description=LUTB_OT_remove_hidden_faces.__annotations__["ignore_lights"].keywords["description"])
     bpy.types.Scene.lutb_hsr_tris_to_quads = BoolProperty(name="Tris to Quads", default=True,
         description=LUTB_OT_remove_hidden_faces.__annotations__["tris_to_quads"].keywords["description"])
     bpy.types.Scene.lutb_hsr_pixels_between_verts = IntProperty(name="Pixels Between Vertices", min=0, default=5, soft_max=15,
@@ -718,6 +722,7 @@ def unregister():
     del bpy.types.Scene.lutb_hsr_autoremove
     del bpy.types.Scene.lutb_hsr_vc_pre_pass
     del bpy.types.Scene.lutb_hsr_vc_pre_pass_samples
+    del bpy.types.Scene.lutb_hsr_ignore_lights
     del bpy.types.Scene.lutb_hsr_tris_to_quads
     del bpy.types.Scene.lutb_hsr_pixels_between_verts
     del bpy.types.Scene.lutb_hsr_samples

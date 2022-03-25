@@ -22,6 +22,9 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
         "definitely visible.")
     vc_pre_pass_samples  : IntProperty(min=1, default=32, description=""\
         "Number of samples to render for vertex color pre-pass")
+    ignore_lights        : BoolProperty(default=True, description=""\
+        "Hide all custom lights while processing."\
+        "Disable this if you want to manually affect the lighting.")
     tris_to_quads        : BoolProperty(default=True, description=""\
         "Convert models triangles to quads for faster, more efficient HSR. "\
         "Quads are then converted back to tris afterwards. "\
@@ -63,9 +66,15 @@ class LUTB_OT_remove_hidden_faces(bpy.types.Operator):
 
         hidden_objects = []
         for obj in list(scene.collection.all_objects):
-            if obj not in {target_obj, ground_plane} and not obj.hide_render:
-                obj.hide_render = True
-                hidden_objects.append(obj)
+            if obj.hide_render:
+                continue
+            if obj in {target_obj, ground_plane}:
+                continue
+            if not self.ignore_lights and obj.type == "LIGHT":
+                continue
+            
+            obj.hide_render = True
+            hidden_objects.append(obj)
 
         scene_override = self.setup_scene_override(context)
 
