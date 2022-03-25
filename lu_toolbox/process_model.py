@@ -418,10 +418,10 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 for obj in list(lod_collection.all_objects):
                     is_transparent = bool(obj.get(IS_TRANSPARENT))
 
-                    shader_prefix = "S01" if is_transparent else scene.lutb_shader_prefix
+                    shader_prefix = "01" if is_transparent else scene.lutb_shader_opaque
                     type_prefix = "Alpha" if is_transparent else "Opaque"
                     obj_name = obj.name.rsplit(".", 1)[0]
-                    name = f"{shader_prefix}_{type_prefix}_{obj_name}"[:60]
+                    name = f"S{shader_prefix}_{type_prefix}_{obj_name}"[:60]
                     obj.name = name
 
                     if (node := ni_nodes.get(name)):
@@ -622,7 +622,10 @@ class LUTB_PT_setup_metadata(LUToolboxPanel, bpy.types.Panel):
         layout.active = scene.lutb_setup_lod_data
 
         layout.prop(scene, "lutb_correct_orientation")
-        layout.prop(scene, "lutb_shader_prefix")
+        layout.prop(scene, "lutb_shader_opaque")
+        layout.prop(scene, "lutb_shader_glow")
+        layout.prop(scene, "lutb_shader_metal")
+        layout.prop(scene, "lutb_shader_superemissive")
         layout.prop(scene, "lutb_lod0")
         layout.prop(scene, "lutb_lod1")
         layout.prop(scene, "lutb_lod2")
@@ -685,7 +688,10 @@ def register():
 
     bpy.types.Scene.lutb_setup_lod_data = BoolProperty(name="Setup LOD Data", default=True)
     bpy.types.Scene.lutb_correct_orientation = BoolProperty(name="Correct Orientation", default=True)
-    bpy.types.Scene.lutb_shader_prefix = StringProperty(name="Shader Prefix", default="S01")
+    bpy.types.Scene.lutb_shader_opaque = StringProperty(name="Opaque Shader", default="01")
+    bpy.types.Scene.lutb_shader_glow = StringProperty(name="Glow Shader", default="72")
+    bpy.types.Scene.lutb_shader_metal = StringProperty(name="Metal Shader", default="88")
+    bpy.types.Scene.lutb_shader_superemissive = StringProperty(name="SuperEmissive Shader", default="19")
     bpy.types.Scene.lutb_lod0 = FloatProperty(name="LOD 0", soft_min=0.0, default=0.0, soft_max=25.0)
     bpy.types.Scene.lutb_lod1 = FloatProperty(name="LOD 1", soft_min=0.0, default=50.0, soft_max=100.0)
     bpy.types.Scene.lutb_lod2 = FloatProperty(name="LOD 2", soft_min=0.0, default=100.0, soft_max=280.0)
@@ -719,7 +725,10 @@ def unregister():
 
     del bpy.types.Scene.lutb_setup_lod_data
     del bpy.types.Scene.lutb_correct_orientation
-    del bpy.types.Scene.lutb_shader_prefix
+    del bpy.types.Scene.lutb_shader_opaque
+    del bpy.types.Scene.lutb_shader_glow
+    del bpy.types.Scene.lutb_shader_metal
+    del bpy.types.Scene.lutb_shader_superemissive
     del bpy.types.Scene.lutb_lod0
     del bpy.types.Scene.lutb_lod1
     del bpy.types.Scene.lutb_lod2
