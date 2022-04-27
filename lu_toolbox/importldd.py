@@ -169,22 +169,13 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
             lods.append("1")
         if importLOD2:
             lods.append("2")
-        LOD3_exists = False
         if importLOD3:
             for dirpath, dirnames, filenames in os.walk(primaryBrickDBPath):
                 for dirname in dirnames:
                     if dirname == "lod3":
-                        LOD3_exists = True
-            if LOD3_exists:
-                lods.append("3")
-            else:
-                self.report({'INFO'}, 'LOD3 does not exist, skipping')
-        with ThreadPoolExecutor(max_workers=4) as worker:
-            for lod in lods:
-                worker.submit(
-                    converter.Export,
-                    lod
-                )
+                        lods.append("3")
+                        break
+
         start = time.process_time()
         with ThreadPoolExecutor(max_workers=4) as executor:
             # Start the export operations and mark each future with its LOD
@@ -937,6 +928,9 @@ class Converter:
             self.scene = Scene(file=filename)
 
     def Export(self, filename, parent_collection=None, useNormals=True, lod=None):
+        if not filename:
+            return
+
         invert = Matrix3D()
         usedmaterials = []
         geometriecache = {}
