@@ -198,6 +198,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         end = time.process_time()
         print(f'Time taken to Load: {end - start} seconds')
         self.report({'INFO'}, f'Time taken to Load: {end - start} seconds')
+
     except Exception as e:
         self.report({'ERROR'}, e)
 
