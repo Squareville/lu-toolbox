@@ -16,6 +16,7 @@ import zipfile
 from xml.dom import minidom
 import uuid
 import random
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .materials import (
     MATERIALS_OPAQUE,
@@ -160,36 +161,14 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
 
+        lods = []
+
         if importLOD0:
-            start = time.process_time()
-            converter.Export(
-                filename=filepath,
-                lod='0',
-                parent_collection=col,
-                useNormals=useNormals
-            )
-            end = time.process_time()
-            self.report({'INFO'}, f'Time taken to Load LOD0: {end - start} seconds')
+            lods.append("0")
         if importLOD1:
-            start = time.process_time()
-            converter.Export(
-                filename=filepath,
-                lod='1',
-                parent_collection=col,
-                useNormals=useNormals
-            )
-            end = time.process_time()
-            self.report({'INFO'}, f'Time taken to Load LOD1: {end - start} seconds')
+            lods.append("1")
         if importLOD2:
-            start = time.process_time()
-            converter.Export(
-                filename=filepath,
-                lod='2',
-                parent_collection=col,
-                useNormals=useNormals
-            )
-            end = time.process_time()
-            self.report({'INFO'}, f'Time taken to Load LOD2: {end - start} seconds')
+            lods.append("2")
         LOD3_exists = False
         if importLOD3:
             for dirpath, dirnames, filenames in os.walk(primaryBrickDBPath):
@@ -197,17 +176,28 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
                     if dirname == "lod3":
                         LOD3_exists = True
             if LOD3_exists:
-                start = time.process_time()
-                converter.Export(
-                    filename=filepath,
-                    lod='3',
-                    parent_collection=col,
-                    useNormals=useNormals
-                )
-                end = time.process_time()
-                self.report({'INFO'}, f'Time taken to Load LOD3: {end - start} seconds')
+                lods.append("3")
             else:
-                self.report({'INFO'}, f'LOD3 does not exist, skipping')
+                self.report({'INFO'}, 'LOD3 does not exist, skipping')
+        with ThreadPoolExecutor(max_workers=4) as worker:
+            for lod in lods:
+                worker.submit(
+                    converter.Export,
+                    lod
+                )
+        start = time.process_time()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            # Start the export operations and mark each future with its LOD
+            future_to_lods = {executor.submit(converter.Export, filepath, col, useNormals, lod): lod for lod in lods}
+            for future in as_completed(future_to_lods):
+                lod = future_to_lods[future]
+                try:
+                    col.children.link(future.result())
+                except Exception as exc:
+                    print(f'{lod} generated an exception: {exc}')
+        end = time.process_time()
+        print(f'Time taken to Load: {end - start} seconds')
+        self.report({'INFO'}, f'Time taken to Load: {end - start} seconds')
     except Exception as e:
         self.report({'ERROR'}, e)
 
@@ -945,7 +935,7 @@ class Converter:
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self, filename, lod=None, parent_collection=None, useNormals=True):
+    def Export(self, filename, parent_collection=None, useNormals=True, lod=None):
         invert = Matrix3D()
         usedmaterials = []
         geometriecache = {}
@@ -955,15 +945,8 @@ class Converter:
         miny = 1000
 
         global_matrix = axis_conversion(from_forward='-Z', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
-        if lod is not None:
-            col = bpy.data.collections.new(self.scene.Name + '_LOD_' + lod)
-        else:
-            col = bpy.data.collections.new(self.scene.Name)
 
-        if parent_collection:
-            parent_collection.children.link(col)
-        else:
-            bpy.context.scene.collection.children.link(col)
+        col = bpy.data.collections.new(self.scene.Name + '_LOD_' + lod)
 
         for bri in self.scene.Bricks:
             current += 1
@@ -1135,6 +1118,7 @@ class Converter:
         useplane = True
         if useplane is True:  # write the floor plane in case True
             i = 0
+        return col
 
 
 def setDBFolderVars(dbfolderlocation):
