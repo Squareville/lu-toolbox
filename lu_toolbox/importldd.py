@@ -179,7 +179,12 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         start = time.process_time()
         with ThreadPoolExecutor(max_workers=5) as executor:
             # Start the export operations and mark each future with its LOD
-            future_to_lods = {executor.submit(converter.Export, filepath, col, useNormals, lod): lod for lod in lods}
+            future_to_lods = {
+                executor.submit(
+                    converter.Export, col, useNormals, lod
+                ): lod for lod in lods
+
+            }
             for future in as_completed(future_to_lods):
                 lod = future_to_lods[future]
                 try:
@@ -927,10 +932,7 @@ class Converter:
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self, filename, parent_collection=None, useNormals=True, lod=None):
-        if not filename:
-            return
-
+    def Export(self, parent_collection=None, useNormals=True, lod=None):
         invert = Matrix3D()
         usedmaterials = []
         geometriecache = {}
