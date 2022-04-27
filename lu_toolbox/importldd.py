@@ -183,8 +183,8 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
                 executor.submit(
                     converter.Export, col, useNormals, lod
                 ): lod for lod in lods
-
             }
+
             for future in as_completed(future_to_lods):
                 lod = future_to_lods[future]
                 try:
