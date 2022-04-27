@@ -177,7 +177,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
                         break
 
         start = time.process_time()
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             # Start the export operations and mark each future with its LOD
             future_to_lods = {executor.submit(converter.Export, filepath, col, useNormals, lod): lod for lod in lods}
             for future in as_completed(future_to_lods):
