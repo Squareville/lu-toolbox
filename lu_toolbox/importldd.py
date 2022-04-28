@@ -181,7 +181,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
             # Start the export operations and mark each future with its LOD
             future_to_lods = {
                 executor.submit(
-                    converter.Export, col, useNormals, lod
+                    converter.Export, useNormals, lod
                 ): lod for lod in lods
             }
 
@@ -191,6 +191,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
                     col.children.link(future.result())
                 except Exception as exc:
                     print(f'{lod} generated an exception: {exc}')
+
         end = time.process_time()
         print(f'Time taken to Load: {end - start} seconds')
         self.report({'INFO'}, f'Time taken to Load: {end - start} seconds')
@@ -932,7 +933,7 @@ class Converter:
         if self.database.initok:
             self.scene = Scene(file=filename)
 
-    def Export(self, parent_collection=None, useNormals=True, lod=None):
+    def Export(self, useNormals=True, lod=None):
         invert = Matrix3D()
         usedmaterials = []
         geometriecache = {}
