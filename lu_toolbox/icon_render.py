@@ -95,11 +95,12 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
                 bevel_mod.limit_method = "WEIGHT"
                 bevel_mod.harden_normals = True
 
-            # TODO ignore some materials
             if scene.lutb_ir_subdivide:
-                subdiv_mod = obj.modifiers.new("Subdivision", "SUBSURF")
-                subdiv_mod.levels = 1
-                subdiv_mod.render_levels = 2
+                brick_id = obj.name.split("brick_")[-1].split("_")[1]
+                if not brick_id in ICON_RENDER_DISABLE_SUBDIV:
+                    subdiv_mod = obj.modifiers.new("Subdivision", "SUBSURF")
+                    subdiv_mod.levels = 1
+                    subdiv_mod.render_levels = 2
 
             mesh = obj.data
             obj.data.use_auto_smooth = True
