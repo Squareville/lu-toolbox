@@ -11,10 +11,15 @@ bl_info = {
 import bpy
 import importlib
 
-module_names = ("process_model", "bake_lighting", "remove_hidden_faces", "importldd")
+module_names = (
+    "process_model",
+    "icon_render",
+    "bake_lighting",
+    "remove_hidden_faces",
+    "importldd"
+)
+
 modules = []
-
-
 for module_name in module_names:
     if module_name in locals():
         modules.append(importlib.reload(locals()[module_name]))
