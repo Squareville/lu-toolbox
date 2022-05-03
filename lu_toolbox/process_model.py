@@ -31,11 +31,6 @@ class LUTB_OT_process_model(bpy.types.Operator):
         scene.render.engine = "CYCLES"
         scene.cycles.device = "GPU" if scene.lutb_process_use_gpu else "CPU"
 
-        self.precombine_brick_materials(context, scene.collection.children)
-        for obj in list(scene.collection.all_objects):
-            if obj.type == "EMPTY":
-                bpy.data.objects.remove(obj)
-
         for obj in scene.collection.all_objects:
             if not obj.type == "MESH":
                 continue
@@ -110,44 +105,12 @@ class LUTB_OT_process_model(bpy.types.Operator):
         bpy.ops.object.select_all(action="DESELECT")
         for obj in all_objects:
             obj.select_set(True)
+        context.view_layer.objects.active = all_objects[0]
 
         end = timer()
         print(f"finished process model in {end - start:.2f}s")
 
         return {"FINISHED"}
-
-    def precombine_brick_materials(self, context, collections):
-        bricks = {}
-        for collection in collections:
-            for lod_collection in collection.children:
-                if not lod_collection.name[-5:] in LOD_SUFFIXES:
-                    continue
-
-                for obj in lod_collection.all_objects:
-                    parent_empty = obj.parent
-                    if not (obj.type == "MESH" and parent_empty):
-                        continue
-
-                    matrix = obj.matrix_world.copy()
-                    obj.parent = None
-                    obj.matrix_world = matrix
-
-                    brick_id = parent_empty.name.rsplit(".", 1)[0]
-                    if brick := bricks.get(brick_id):
-                        brick.append(obj)
-                    else:
-                        bricks[brick_id] = [obj]
-
-        for objs in bricks.values():
-            used_materials = {}
-            for obj in objs:
-                mesh = obj.data
-                for i, material in enumerate(list(mesh.materials)):
-                    mat_name = material.name.rsplit(".", 1)[0]
-                    if replacement_mat := used_materials.get(mat_name):
-                        mesh.materials[i] = replacement_mat
-                    else:
-                        used_materials[mat_name] = material
 
     def clear_uvs(self, objects):
         for obj in objects:
