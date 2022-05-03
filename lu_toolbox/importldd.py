@@ -209,7 +209,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
             else:
                 self.report({'INFO'}, f'LOD3 does not exist, skipping')
     except Exception as e:
-        self.report({'ERROR'}, e)
+        self.report({'ERROR'}, str(e))
 
     return {'FINISHED'}
 
