@@ -8,7 +8,6 @@ bl_info = {
 	"support": "COMMUNITY",
 }
 
-import bpy
 import importlib
 
 module_names = (

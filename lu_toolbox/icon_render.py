@@ -1,10 +1,12 @@
 import bpy, bmesh
 from bpy.props import BoolProperty
+from mathutils import Vector, Matrix
+
+from math import radians
+import numpy as np
 
 from .process_model import LOD_SUFFIXES
 from .materials import *
-
-from math import radians
 
 class LUTB_OT_setup_icon_render(bpy.types.Operator):
     """Setup Icon Render for LU Model"""
@@ -123,6 +125,19 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
                     break
             else:
                 continue
+
+            lod_collection = collection.children[0]
+            obj_bounds = np.empty((len(lod_collection.objects) * 2, 3))
+            for i, obj in enumerate(lod_collection.objects):
+                obj_bounds[i * 2 + 0] = obj.matrix_world @ Vector(obj.bound_box[0])
+                obj_bounds[i * 2 + 1] = obj.matrix_world @ Vector(obj.bound_box[6])
+
+            dimensions = obj_bounds.max(0) - obj_bounds.min(0)
+            offset = Matrix.Translation(-(obj_bounds.min(0) + dimensions * 0.5))
+            scale = Matrix.Scale(1 / np.abs(dimensions).max(), 4)
+            print(obj_bounds.max(0), obj_bounds.min(0), offset)
+            for obj in lod_collection.objects:
+                obj.matrix_world = scale @ offset @ obj.matrix_world
 
             scene.collection.children.unlink(collection)
             ir_scene.collection.children.link(collection)
