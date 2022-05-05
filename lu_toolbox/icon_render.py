@@ -135,7 +135,6 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
             dimensions = obj_bounds.max(0) - obj_bounds.min(0)
             offset = Matrix.Translation(-(obj_bounds.min(0) + dimensions * 0.5))
             scale = Matrix.Scale(1 / np.abs(dimensions).max(), 4)
-            print(obj_bounds.max(0), obj_bounds.min(0), offset)
             for obj in lod_collection.objects:
                 obj.matrix_world = scale @ offset @ obj.matrix_world
 
