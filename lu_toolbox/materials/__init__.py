@@ -1,6 +1,8 @@
 from pathlib import Path
 import bpy
 
+from .color_conversions import *
+
 LUTB_BAKE_MAT = "VertexColor"
 LUTB_TRANSPARENT_MAT = "VertexColorTransparent"
 LUTB_FORCE_WHITE_MAT = "ForceWhite"
@@ -291,24 +293,3 @@ def append_resources(parent_op=None):
                 parent_op.report({"WARNING"},
                     f"Failed to append \"{scene_name}\" from \"{blend_file}\"."
                 )
-
-def srgb2lin(color):
-    result = []
-    for srgb in color:
-        if srgb <= 0.0404482362771082:
-            lin = srgb / 12.92
-        else:
-            lin = pow(((srgb + 0.055) / 1.055), 2.4)
-        result.append(lin)
-    return result
-
-
-def lin2srgb(color):
-    result = []
-    for lin in color:
-        if lin > 0.0031308:
-            srgb = 1.055 * (pow(lin, (1.0 / 2.4))) - 0.055
-        else:
-            srgb = 12.92 * lin
-        result.append(srgb)
-    return result
