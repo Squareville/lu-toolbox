@@ -215,8 +215,8 @@ CUSTOM_VARIATION = {
 }
 
 ICON_MATERIALS_OPAQUE = {
-    "1"     : (0.7,    0.7,   0.7,   1.0),
-    "26"    : (0.01,    0.01,   0.01,   1.0),    
+    "1"     : srgb2lin((0.7,    0.7,   0.7,   1.0)),
+    "26"    : srgb2lin((0.01,    0.01,   0.01,   1.0)),    
 }
 
 ICON_MATERIALS_TRANSPARENT = {
