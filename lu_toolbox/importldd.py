@@ -1150,6 +1150,9 @@ class Converter:
                 for material in used_materials:
                     brick_mesh.materials.append(material)
 
+                if useNormals:
+                    brick_mesh.use_auto_smooth = True
+
                 brick_obj = bpy.data.objects.new(brick_name, brick_mesh)
                 brick_obj.matrix_world = part_matrix
                 col.objects.link(brick_obj)
