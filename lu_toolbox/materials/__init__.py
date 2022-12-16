@@ -1,10 +1,20 @@
 from pathlib import Path
 import bpy
 
+from .color_conversions import *
+
 LUTB_BAKE_MAT = "VertexColor"
 LUTB_TRANSPARENT_MAT = "VertexColorTransparent"
 LUTB_FORCE_WHITE_MAT = "ForceWhite"
 LUTB_OTHER_MATS = ["VertexColorAO"]
+LUTB_BAKE_MATS = (LUTB_BAKE_MAT, LUTB_TRANSPARENT_MAT, LUTB_FORCE_WHITE_MAT, *LUTB_OTHER_MATS)
+
+LUTB_IR_OPAQUE_MAT = "ItemRender_Opaque"
+LUTB_IR_TRANSPARENT_MAT = "ItemRender_Transparent"
+LUTB_IR_METAL_MAT = "ItemRender_Metal"
+LUTB_IR_MATS = (LUTB_IR_OPAQUE_MAT, LUTB_IR_TRANSPARENT_MAT, LUTB_IR_METAL_MAT)
+
+LUTB_IR_SCENE = "ItemRender"
 
 # Solid/Opaque
 MATERIALS_OPAQUE = {
@@ -115,16 +125,16 @@ MATERIALS_TRANSPARENT = {
     "20"    : (0.930111,    0.672443,   0.250158,   1.0),
     "40"    : (0.854993,    0.854993,   0.854993,   1.0),
     "41"    : (0.745405,    0.023153,   0.022174,   1.0),
-    "42"    : (0.467784,    0.745404,   0.863157,   1.0),
-    "43"    : (0.08022,     0.439657,   0.806952,   1.0),
+    "42"    : (0.244106,    0.720966,   0.772058,   1.0),
+    "43"    : (0.031372,    0.285668,   0.643137,   1.0),
     "44"    : (0.947307,    0.863157,   0.141263,   1.0),
     "47"    : (0.791298,    0.132868,   0.059511,   1.0),
-    "48"    : (0.119539,    0.450786,   0.155927,   1.0),
-    "49"    : (0.930111,    0.83077,    0.099899,   1.0),
+    "48"    : (0.0,         0.391,      0.0,        1.0),
+    "49"    : (0.697,       1.0,        0.0,        1.0),
     "111"   : (0.496933,    0.445201,   0.341914,   1.0),
-    "113"   : (0.854993,    0.337164,   0.545725,   1.0),
-    "126"   : (0.332452,    0.296138,   0.571125,   1.0),
-    "143"   : (0.623961,    0.760525,   0.930111,   1.0),
+    "113"   : (0.754717,    0.060520,   0.541647,   1.0),
+    "126"   : (0.113399,    0.034649,   0.504,      1.0),
+    "143"   : (0.218464,    0.484717,   0.809,      1.0),
     "182"   : (0.8388,      0.181164,   0.004391,   1.0),
     "311"   : (0.42869,     0.64448,    0.061246,   1.0),
 }
@@ -189,6 +199,7 @@ CUSTOM_VARIATION = {
     "21"    : 1.4,
     "23"    : 1.25,
     "24"    : 1.5,
+    "26"    : 0.4,
     "28"    : 0.8,
     "37"    : 0.8,
     "135"   : 0.85,
@@ -204,7 +215,33 @@ CUSTOM_VARIATION = {
     "326"   : 1.75,
 }
 
-for dictionary in (MATERIALS_OPAQUE, MATERIALS_TRANSPARENT, MATERIALS_GLOW, MATERIALS_METALLIC, CUSTOM_VARIATION):
+ICON_MATERIALS_OPAQUE = {
+    "1"     : srgb2lin((0.7,    0.7,   0.7,   1.0)),
+    "26"    : srgb2lin((0.01,    0.01,   0.01,   1.0)),    
+}
+
+ICON_MATERIALS_TRANSPARENT = {
+    
+}
+
+ICON_MATERIALS_GLOW = {
+    
+}
+
+ICON_MATERIALS_METALLIC = {
+    
+}
+
+ICON_RENDER_DISABLE_SUBDIV = {
+    
+}
+
+dicts = (
+    MATERIALS_OPAQUE, MATERIALS_TRANSPARENT, MATERIALS_GLOW, MATERIALS_METALLIC,
+    ICON_MATERIALS_OPAQUE, ICON_MATERIALS_TRANSPARENT, ICON_MATERIALS_GLOW,
+    ICON_MATERIALS_METALLIC, CUSTOM_VARIATION,
+)
+for dictionary in dicts:
     for keys, value in list(dictionary.items()):
         if not type(keys) == str:
             dictionary.pop(keys)
@@ -212,49 +249,48 @@ for dictionary in (MATERIALS_OPAQUE, MATERIALS_TRANSPARENT, MATERIALS_GLOW, MATE
                 dictionary[key] = value
 
 def get_lutb_bake_mat(parent_op=None):
-    if not LUTB_BAKE_MAT in bpy.data.materials:
-        append_resources(parent_op)
+    append_resources(parent_op)
     return bpy.data.materials.get(LUTB_BAKE_MAT)
 
 def get_lutb_transparent_mat(parent_op=None):
-    if not LUTB_TRANSPARENT_MAT in bpy.data.materials:
-        append_resources(parent_op)
+    append_resources(parent_op)
     return bpy.data.materials.get(LUTB_TRANSPARENT_MAT)
 
 def get_lutb_force_white_mat(parent_op=None):
-    if not LUTB_FORCE_WHITE_MAT in bpy.data.materials:
-        append_resources(parent_op)
+    append_resources(parent_op)
     return bpy.data.materials.get(LUTB_FORCE_WHITE_MAT)
+
+def get_lutb_ir_opaque_mat(parent_op=None):
+    append_resources(parent_op)
+    return bpy.data.materials.get(LUTB_IR_OPAQUE_MAT)
+
+def get_lutb_ir_transparent_mat(parent_op=None):
+    append_resources(parent_op)
+    return bpy.data.materials.get(LUTB_IR_TRANSPARENT_MAT)
+
+def get_lutb_ir_metal_mat(parent_op=None):
+    append_resources(parent_op)
+    return bpy.data.materials.get(LUTB_IR_METAL_MAT)
+
+def get_lutb_ir_scene(parent_op=None, copy=True):
+    append_resources(parent_op)
+    return bpy.data.scenes.get(LUTB_IR_SCENE).copy()
 
 def append_resources(parent_op=None):
     blend_file = Path(__file__).parent / "resources.blend"
 
-    for mat_name in (LUTB_BAKE_MAT, LUTB_TRANSPARENT_MAT, LUTB_FORCE_WHITE_MAT, *LUTB_OTHER_MATS):
+    for mat_name in (*LUTB_BAKE_MATS, *LUTB_IR_MATS):
         if not mat_name in bpy.data.materials:
             bpy.ops.wm.append(directory=str(blend_file / "Material"), filename=mat_name)
-
             if not mat_name in bpy.data.materials and parent_op:
                 parent_op.report({"WARNING"},
                     f"Failed to append \"{mat_name}\" from \"{blend_file}\"."
                 )
 
-def srgb2lin(color):
-    result = []
-    for srgb in color:
-        if srgb <= 0.0404482362771082:
-            lin = srgb / 12.92
-        else:
-            lin = pow(((srgb + 0.055) / 1.055), 2.4)
-        result.append(lin)
-    return result
-
-
-def lin2srgb(color):
-    result = []
-    for lin in color:
-        if lin > 0.0031308:
-            srgb = 1.055 * (pow(lin, (1.0 / 2.4))) - 0.055
-        else:
-            srgb = 12.92 * lin
-        result.append(srgb)
-    return result
+    scene_name = LUTB_IR_SCENE
+    if not scene_name in bpy.data.scenes:
+        bpy.ops.wm.append(directory=str(blend_file / "Scene"), filename=scene_name)
+        if not scene_name in bpy.data.scenes and parent_op:
+                parent_op.report({"WARNING"},
+                    f"Failed to append \"{scene_name}\" from \"{blend_file}\"."
+                )

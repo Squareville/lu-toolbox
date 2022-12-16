@@ -1,6 +1,6 @@
 # based on pyldd2obj by jonnysp and lxfml import plugin by sttng
 # modified by aronwk-aaron to work better with LU-Toolbox
-import bpy
+import bpy, bmesh
 import mathutils
 from bpy_extras.io_utils import (
     ImportHelper,
@@ -17,6 +17,7 @@ from xml.dom import minidom
 import uuid
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import numpy as np
 
 from .materials import (
     MATERIALS_OPAQUE,
@@ -197,7 +198,7 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         self.report({'INFO'}, f'Time taken to Load: {end - start} seconds')
 
     except Exception as e:
-        self.report({'ERROR'}, e)
+        self.report({'ERROR'}, str(e))
 
     return {'FINISHED'}
 
@@ -985,17 +986,13 @@ class Converter:
                 uniqueId = str(uuid.uuid4().hex)
                 material_string = '_' + '_'.join(pa.materials)
                 written_obj = geo.designID + material_string
+                brick_name = f"brick_{currentpart}_{written_obj}"
 
                 if (len(pa.Bones) > flexflag):
                     # Flex parts are "unique". Ensure they get a unique filename
                     written_obj = written_obj + "_" + uniqueId
-
-                brick_object = bpy.data.objects.new("brick{0}_{1}".format(currentpart, written_obj), None)
-                col.objects.link(brick_object)
-                brick_object.empty_display_size = 1.25
-                brick_object.empty_display_type = 'PLAIN_AXES'
-
-                if not (len(pa.Bones) > flexflag):
+                    part_matrix = global_matrix
+                else:
                     # Flex parts don't need to be moved, but non-flex parts need
                     transform_matrix = mathutils.Matrix(
                         (
@@ -1009,11 +1006,15 @@ class Converter:
                     # Random Scale for brick seams
                     scalefact = (geo.maxGeoBounding - 0.000 * random.uniform(0.0, 1.000)) / geo.maxGeoBounding
 
+                    scale_matrix = mathutils.Matrix.Scale(scalefact, 4)
+                    part_matrix = global_matrix @ transform_matrix @ scale_matrix
+
                     # miny used for floor plane later
                     if miny > float(n42):
                         miny = n42
 
                 last_color = 0
+                geo_meshes = []
                 for part in geo.Parts:
 
                     written_geo = str(geo.designID) + '_' + str(part)
@@ -1066,15 +1067,13 @@ class Converter:
                             mesh.normals_split_custom_set_from_vertices(normals)
                             mesh.use_auto_smooth = True
 
-                        geometriecache["geo{0}".format(written_geo)] = mesh
+                        geometriecache["geo{0}".format(written_geo)] = mesh.copy()
 
                     else:
                         mesh = geometriecache["geo{0}".format(written_geo)].copy()
                         mesh.materials.clear()
 
-                    geo_obj = bpy.data.objects.new(mesh.name, mesh)
-                    geo_obj.parent = brick_object
-                    col.objects.link(geo_obj)
+                    geo_meshes.append(mesh)
 
                     # try catch here for possible problems in materials assignment of various g, g1, g2, .. files in lxf file
                     try:
@@ -1104,14 +1103,44 @@ class Converter:
                             for loop_index in range(poly.loop_start, poly.loop_start + poly.loop_total):
                                 uv_layer[loop_index].uv = uvs[mesh.loops[loop_index].vertex_index]
 
-                if not (len(pa.Bones) > flexflag):
-                    # Transform (move) only non-flex parts
-                    brick_object.matrix_world = global_matrix @ transform_matrix
-                    brick_object.scale = (scalefact, scalefact, scalefact)
+                used_materials = []
+                used_material_indices = {}
+                bm = bmesh.new()
+                for mesh in geo_meshes:
+                    index_remapping = np.empty(len(mesh.materials), dtype=int)
+                    for i, material in enumerate(mesh.materials):
+                        mat_name = material.name.rsplit(".", 1)[0]
+                        if (index := used_material_indices.get(mat_name)) is not None:
+                            index_remapping[i] = index
+                            bpy.data.materials.remove(material)
+                        else:
+                            index_remapping[i] = len(used_material_indices)
+                            used_material_indices[mat_name] = index_remapping[i]
+                            used_materials.append(material)
 
-                else:
-                    # Flex parts need only to be aligned the Blender coordinate system
-                    brick_object.matrix_world = global_matrix
+                    material_indices = np.empty(len(mesh.polygons), dtype=int)
+                    mesh.polygons.foreach_get("material_index", material_indices)
+                    remapped_indices = index_remapping[material_indices]
+                    mesh.polygons.foreach_set("material_index", remapped_indices)
+
+                    bm.from_mesh(mesh)
+                    bpy.data.meshes.remove(mesh)
+
+                brick_mesh = bpy.data.meshes.new(brick_name)
+                bm.to_mesh(brick_mesh)
+                for material in used_materials:
+                    brick_mesh.materials.append(material)
+
+                if useNormals:
+                    brick_mesh.use_auto_smooth = True
+
+                brick_obj = bpy.data.objects.new(brick_name, brick_mesh)
+                brick_obj.matrix_world = part_matrix
+                col.objects.link(brick_obj)
+
+        for mesh in geometriecache.values():
+            if type(mesh) == bpy.types.Mesh:
+                bpy.data.meshes.remove(mesh)
 
         useplane = True
         if useplane is True:  # write the floor plane in case True
