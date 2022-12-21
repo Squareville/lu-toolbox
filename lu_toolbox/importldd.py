@@ -16,7 +16,8 @@ import zipfile
 from xml.dom import minidom
 import uuid
 import random
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from multiprocessing import Process
+from timeit import default_timer as timer
 import numpy as np
 
 from .materials import (
@@ -162,38 +163,33 @@ def convertldd_data(self, context, filepath, importLOD0, importLOD1, importLOD2,
         col = bpy.data.collections.new(converter.scene.Name)
         bpy.context.scene.collection.children.link(col)
 
-        lods = []
-
+        procs = []
+        start = timer()
         if importLOD0:
-            lods.append("0")
+            proc = Process(target=converter.Export, args=(useNormals, "0"))
+            procs.append(proc)
+            proc.start()
         if importLOD1:
-            lods.append("1")
+            proc = Process(target=converter.Export, args=(useNormals, "1"))
+            procs.append(proc)
+            proc.start()
         if importLOD2:
-            lods.append("2")
+            proc = Process(target=converter.Export, args=(useNormals, "2"))
+            procs.append(proc)
+            proc.start()
         if importLOD3:
             for dirpath, dirnames, filenames in os.walk(primaryBrickDBPath):
                 for dirname in dirnames:
                     if dirname == "lod3":
-                        lods.append("3")
+                        proc = Process(target=converter.Export, args=(useNormals, "3"))
+                        procs.append(proc)
+                        proc.start()
                         break
 
-        start = time.process_time()
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            # Start the export operations and mark each future with its LOD
-            future_to_lods = {
-                executor.submit(
-                    converter.Export, useNormals, lod
-                ): lod for lod in lods
-            }
 
-            for future in as_completed(future_to_lods):
-                lod = future_to_lods[future]
-                try:
-                    col.children.link(future.result())
-                except Exception as exc:
-                    print(f'{lod} generated an exception: {exc}')
-
-        end = time.process_time()
+        for proc in procs:
+            proc.join()
+        end = timer()
         print(f'Time taken to Load: {end - start} seconds')
         self.report({'INFO'}, f'Time taken to Load: {end - start} seconds')
 
