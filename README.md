@@ -1,4 +1,4 @@
-[![blender](https://img.shields.io/badge/blender-2.93.7-success)](https://download.blender.org/release/Blender2.93/)
+[![blender](https://img.shields.io/badge/blender-3.1.0-success)](https://download.blender.org/release/Blender3.1/)
 [![gpl](https://img.shields.io/github/license/30350n/lu-toolbox)](https://github.com/30350n/lu-toolbox/blob/master/LICENSE)
 # LEGO Universe Toolbox
 A Blender Add-on which adds a bunch of useful tools to prepare models for use in LEGO Universe.
