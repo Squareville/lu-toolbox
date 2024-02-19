@@ -18,6 +18,9 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
         return context.mode == "OBJECT"
 
     def execute(self, context):
+        # we will only increase the sample count for rendering if we need to (currently only if there are any transparent pieces) - jamie
+        increase_samples = False
+        
         scene = context.scene
 
         for collection in scene.collection.children:
@@ -117,6 +120,7 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
                     # next two lines are a silly hacky fix cause i dont wanna mess with the magical mystery box that is resources.blend, and hollis didnt know why it was broken anyway - jamie
                     mesh.materials[i].blend_method = "HASHED"
                     mesh.materials[i].shadow_method = "HASHED"
+                    increase_samples = True
                 elif name in MATERIALS_METALLIC:
                     mesh.materials[i] = get_lutb_ir_metal_mat(self)
 
@@ -150,8 +154,8 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
             if area.type == "VIEW_3D":
                 area.spaces[0].shading.type = "RENDERED"
 
-        # for transparent pieces. if your icon doesnt have transparent bricks just deal with it - jamie
-        bpy.context.scene.eevee.taa_render_samples = 1024
+        if increase_samples:
+            bpy.context.scene.eevee.taa_render_samples = 1024
         
         return {"FINISHED"}
 
