@@ -75,6 +75,9 @@ class LUTB_OT_process_model(bpy.types.Operator):
         if not scene.lutb_keep_uvs:
             self.clear_uvs(all_objects)
 
+        if scene.lutb_reset_orientation:
+            self.reset_orientation(all_objects)
+
         if scene.lutb_apply_vertex_colors:
             if scene.lutb_correct_colors:
                 self.correct_colors(context, all_objects)
@@ -116,6 +119,15 @@ class LUTB_OT_process_model(bpy.types.Operator):
         for obj in objects:
             for uv_layer in reversed(obj.data.uv_layers):
                 obj.data.uv_layers.remove(uv_layer)
+
+    def reset_orientation(self, objects):
+        for obj in objects:
+            obj.select_set(True)
+            bpy.ops.object.transform_apply()
+            obj.rotation_euler = (radians(-90), 0, 0)
+            bpy.ops.object.transform_apply()
+            obj.rotation_euler = (radians(90), 0, 0)
+            obj.select_set(False)
 
     def combine_objects(self, context, collections):
         scene = context.scene
@@ -453,6 +465,8 @@ class LUTB_PT_process_model(LUToolboxPanel, bpy.types.Panel):
 
         layout.prop(scene, "lutb_keep_uvs")
 
+        layout.prop(scene, "lutb_reset_orientation")
+
 class LUTB_PT_apply_vertex_colors(LUToolboxPanel, bpy.types.Panel):
     bl_label = "Apply Vertex Colors"
     bl_parent_id = "LUTB_PT_process_model"
@@ -567,6 +581,8 @@ def register():
         "Combine transparent bricks")
     bpy.types.Scene.lutb_keep_uvs = BoolProperty(name="Keep UVs", default=False, description=""\
         "Keep the original mesh UVs. Disabling this results in a model with no UVs")
+    bpy.types.Scene.lutb_reset_orientation = BoolProperty(name="Reset Orientation", default=True, description=""\
+        "Reset the orientation so the model is properly upright for visual effects.")
 
     bpy.types.Scene.lutb_correct_colors = BoolProperty(name="Correct Colors", default=False, description=""\
         "Remap model colors to LU color palette. "\
@@ -625,6 +641,7 @@ def unregister():
     del bpy.types.Scene.lutb_combine_objects
     del bpy.types.Scene.lutb_combine_transparent
     del bpy.types.Scene.lutb_keep_uvs
+    del bpy.types.Scene.lutb_reset_orientation
 
     del bpy.types.Scene.lutb_correct_colors
     del bpy.types.Scene.lutb_use_color_variation
