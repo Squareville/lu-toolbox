@@ -83,7 +83,7 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 self.correct_colors(context, all_objects)
 
             if scene.lutb_use_color_variation:
-                self.apply_color_variation(context, all_objects)
+                self.apply_color_variation(context, scene.collection.children)
 
             self.apply_vertex_colors(context, all_objects)
 
@@ -180,19 +180,25 @@ class LUTB_OT_process_model(bpy.types.Operator):
                 elif color := MATERIALS_TRANSPARENT.get(name):
                     material.diffuse_color = color
 
-    def apply_color_variation(self, context, objects):
+    def apply_color_variation(self, context, collections):
+        initial_state = random.getstate()
         variation = context.scene.lutb_color_variation
-        for obj in objects:
-            for material in obj.data.materials:
-                color = Color(material.diffuse_color[:3])
-                gamma = color.v ** (1 / 2.224)
 
-                custom_variation = CUSTOM_VARIATION.get(material.name.rsplit(".", 1)[0])
-                var = variation if custom_variation is None else variation * custom_variation
-                gamma += random.uniform(-var / 200, var / 200)
+        for collection in collections:
+            for lod_collection in collection.children:
+                random.setstate(initial_state)
+                for obj in list(lod_collection.objects):
+                    if obj.type == "MESH":
+                        for material in obj.data.materials:
+                            color = Color(material.diffuse_color[:3])
+                            gamma = color.v ** (1 / 2.224)
 
-                color.v = min(max(0, gamma), 1) ** 2.224
-                material.diffuse_color = (*color, 1.0)
+                            custom_variation = CUSTOM_VARIATION.get(material.name.rsplit(".", 1)[0])
+                            var = variation if custom_variation is None else variation * custom_variation
+                            gamma += random.uniform(-var / 200, var / 200)
+
+                            color.v = min(max(0, gamma), 1) ** 2.224
+                            material.diffuse_color = (*color, 1.0)
 
     def apply_vertex_colors(self, context, objects):
         scene = context.scene
