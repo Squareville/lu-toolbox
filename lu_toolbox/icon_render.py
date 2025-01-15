@@ -115,6 +115,12 @@ class LUTB_OT_setup_icon_render(bpy.types.Operator):
                 name = material.name.rsplit(".", 1)[0]
                 if name in MATERIALS_OPAQUE:
                     mesh.materials[i] = get_lutb_ir_opaque_mat(self)
+                    # another hack to change a material setting, for the same reasons as the comment below...
+                    # anyway, it was deemed that having this enabled was making the plastic look too soft and washed-out in many scenarios - jamie
+                    if mesh.materials[i].node_tree:
+                        for node in mesh.materials[i].node_tree.nodes:
+                            if node.type == "BSDF_PRINCIPLED":
+                                node.inputs["Subsurface"].default_value = 0
                 elif name in MATERIALS_TRANSPARENT:
                     mesh.materials[i] = get_lutb_ir_transparent_mat(self)
                     # next two lines are a silly hacky fix cause i dont wanna mess with the magical mystery box that is resources.blend, and hollis didnt know why it was broken anyway - jamie
